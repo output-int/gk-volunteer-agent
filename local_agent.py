@@ -9,13 +9,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from gaokao_recommender import DEFAULT_DB_PATH, StudentProfile, connect, parse_subjects, recommend
 from report_renderer import render_report
 
 
 ROOT = Path(__file__).resolve().parent
+SAFE_NAME_RE = re.compile(r"[^0-9A-Za-z\u4e00-\u9fff._-]+")
 
 
 def ask(prompt: str, default: str | None = None) -> str:
@@ -87,6 +91,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--accept-sino-foreign", action="store_true")
     parser.add_argument("--json", action="store_true", help="Print recommendation JSON instead of Markdown.")
     parser.add_argument("--output", type=Path, help="Write output to a file instead of stdout.")
+    parser.add_argument(
+        "--save-run",
+        type=Path,
+        help=(
+            "Save a reproducible run snapshot under this directory. "
+            "Each run includes input_profile.json, recommendation.json, report.md, and metadata.json."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -126,16 +138,75 @@ def write_output(content: str, output: Path | None) -> None:
     print(f"Wrote {path}")
 
 
+def resolve_output_path(path: Path) -> Path:
+    return path if path.is_absolute() else ROOT / path
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def safe_name(value: Any, fallback: str = "run") -> str:
+    cleaned = SAFE_NAME_RE.sub("-", str(value or fallback)).strip(".-_")
+    return cleaned or fallback
+
+
+def save_run_snapshot(
+    snapshot_root: Path,
+    *,
+    db_path: Path,
+    args: argparse.Namespace,
+    recommendation: dict[str, Any],
+    markdown_report: str,
+) -> Path:
+    resolved_root = resolve_output_path(snapshot_root)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    profile = recommendation.get("student_profile", {})
+    subject_type = safe_name(profile.get("subject_type"), "unknown")
+    major_interest = safe_name(profile.get("major_interest"), "all")
+    run_dir = resolved_root / f"{timestamp}-{subject_type}-{major_interest}"
+    suffix = 1
+    while run_dir.exists():
+        suffix += 1
+        run_dir = resolved_root / f"{timestamp}-{subject_type}-{major_interest}-{suffix}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    write_json(run_dir / "input_profile.json", profile)
+    write_json(run_dir / "recommendation.json", recommendation)
+    (run_dir / "report.md").write_text(markdown_report, encoding="utf-8")
+    write_json(
+        run_dir / "metadata.json",
+        {
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "db_path": str(db_path),
+            "mode": "json" if args.json else "markdown",
+            "output_path": str(resolve_output_path(args.output)) if args.output else None,
+            "mock_data_notice": "当前数据仅用于开发测试，不代表真实录取结果。",
+        },
+    )
+    return run_dir
+
+
 def main() -> None:
     args = parse_args()
     db_path = args.db if args.db.is_absolute() else ROOT / args.db
     profile = profile_from_args(args) or interactive_profile()
     with connect(db_path) as conn:
         recommendation = recommend(conn, profile)
+    markdown_report = render_report(recommendation)
+    if args.save_run:
+        snapshot_dir = save_run_snapshot(
+            args.save_run,
+            db_path=db_path,
+            args=args,
+            recommendation=recommendation,
+            markdown_report=markdown_report,
+        )
+        print(f"Saved run snapshot: {snapshot_dir}")
     if args.json:
         output = json.dumps(recommendation, ensure_ascii=False, indent=2) + "\n"
     else:
-        output = render_report(recommendation)
+        output = markdown_report
     write_output(output, args.output)
 
 

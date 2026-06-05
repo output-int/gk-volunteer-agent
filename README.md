@@ -82,6 +82,14 @@ python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-su
 python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息 --json
 ```
 
+保存一次可复盘运行快照：
+
+```powershell
+python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息 --save-run outputs/runs
+```
+
+快照目录包含 `input_profile.json`、`recommendation.json`、`report.md` 和 `metadata.json`，适合后续调参、人工复核和案例回放。
+
 ## 本地批量评测
 
 运行数据库内置的 Mock 考生案例：
