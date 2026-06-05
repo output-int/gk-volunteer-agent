@@ -6,9 +6,10 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
 from gaokao_recommender import (
@@ -111,12 +112,18 @@ def health() -> dict[str, Any]:
     }
 
 
-def render_local_form(markdown_report: str | None = None) -> str:
+def render_local_form(markdown_report: str | None = None, download_url: str | None = None) -> str:
     report_html = ""
     if markdown_report is not None:
+        download_html = ""
+        if download_url is not None:
+            download_html = f"""
+          <p><a class="download" href="{escape(download_url, quote=True)}">下载 Markdown 报告</a></p>
+            """
         report_html = f"""
         <section class="report">
           <h2>报告草稿</h2>
+          {download_html}
           <pre>{escape(markdown_report)}</pre>
         </section>
         """
@@ -194,6 +201,16 @@ def render_local_form(markdown_report: str | None = None) -> str:
       font-weight: 700;
       cursor: pointer;
     }}
+    .download {{
+      display: inline-block;
+      margin: 0 0 12px;
+      color: #1d4ed8;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    .download:hover {{
+      text-decoration: underline;
+    }}
     .report {{
       margin-top: 24px;
       padding: 20px;
@@ -262,8 +279,7 @@ def local_home() -> HTMLResponse:
     return HTMLResponse(render_local_form())
 
 
-@app.get("/web/report", response_class=HTMLResponse)
-def local_report(
+def build_payload_from_web_query(
     score: int = Query(..., ge=0, le=750),
     rank: int | None = Query(None, gt=0),
     subject_type: str = Query(..., pattern="^(物理|历史)$"),
@@ -271,9 +287,8 @@ def local_report(
     major_interest: str = Query(""),
     risk_level: str = Query("均衡", pattern="^(保守|均衡|激进)$"),
     accept_sino_foreign: bool = Query(False),
-) -> HTMLResponse:
-    ensure_db_exists()
-    payload = RecommendRequest(
+) -> RecommendRequest:
+    return RecommendRequest(
         score=score,
         rank=rank,
         subject_type=subject_type,
@@ -282,9 +297,44 @@ def local_report(
         risk_level=risk_level,
         accept_sino_foreign=accept_sino_foreign,
     )
+
+
+def web_report_download_url(payload: RecommendRequest) -> str:
+    query = urlencode(
+        {
+            "score": payload.score,
+            "rank": payload.rank if payload.rank is not None else "",
+            "subject_type": payload.subject_type,
+            "second_subjects": ",".join(payload.second_subjects),
+            "major_interest": payload.major_interest,
+            "risk_level": payload.risk_level,
+            "accept_sino_foreign": str(payload.accept_sino_foreign).lower(),
+        }
+    )
+    return f"/web/report.md?{query}"
+
+
+def generate_markdown_report(payload: RecommendRequest) -> str:
+    ensure_db_exists()
     with connect(DEFAULT_DB_PATH) as conn:
         recommendation = recommend(conn, build_profile(payload))
-    return HTMLResponse(render_local_form(render_report(recommendation)))
+    return render_report(recommendation)
+
+
+@app.get("/web/report", response_class=HTMLResponse)
+def local_report(payload: RecommendRequest = Depends(build_payload_from_web_query)) -> HTMLResponse:
+    markdown_report = generate_markdown_report(payload)
+    return HTMLResponse(render_local_form(markdown_report, web_report_download_url(payload)))
+
+
+@app.get("/web/report.md")
+def local_report_markdown(payload: RecommendRequest = Depends(build_payload_from_web_query)) -> Response:
+    markdown_report = generate_markdown_report(payload)
+    return Response(
+        content=markdown_report,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="gaokao_report.md"'},
+    )
 
 
 @app.post("/recommend", response_model=RecommendResponse)
