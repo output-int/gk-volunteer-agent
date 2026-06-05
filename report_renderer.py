@@ -43,10 +43,11 @@ def render_candidate(item: dict[str, Any], index: int) -> str:
             f"   - 最新年份：{item.get('latest_year')}，最低分：{item.get('latest_min_score')}，"
             f"原始最低位次：{item.get('latest_min_rank')}，等效最低位次：{item.get('latest_equivalent_min_rank')}",
             f"   - 位次差：{text_or_dash(item.get('rank_gap'))}，趋势：{text_or_dash(item.get('trend'))}，"
-            f"波动值：{text_or_dash(item.get('volatility_score'))}",
+            f"波动等级：{text_or_dash(item.get('volatility_level'))}，波动值：{text_or_dash(item.get('volatility_score'))}",
             f"   - 选科说明：{text_or_dash(item.get('subject_requirement_note'))}",
             f"   - 就业方向：{text_or_dash(item.get('employment_direction'))}",
             f"   - 历史参考：{history_text}",
+            f"   - 风险标签：{'、'.join(item.get('risk_flags', [])) or '-'}",
             f"   - 风险提示：{text_or_dash(item.get('risk_notes'))}",
             f"   - 来源：{text_or_dash(item.get('source_url'))}，置信度：{text_or_dash(item.get('confidence'))}",
         ]

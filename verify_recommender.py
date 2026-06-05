@@ -78,8 +78,10 @@ def main() -> None:
                 and item["rank_method"] == "equivalent_rank"
                 and item["latest_equivalent_min_rank"] == 18500
                 and item["history"][0]["equivalent_min_rank"] == 20160
+                and item["volatility_level"] == "low"
+                and "冲刺档存在滑档风险" in item["risk_flags"]
             ),
-            "CQUPT Computer should expose equivalent-rank calculations.",
+            "CQUPT Computer should expose equivalent-rank calculations and risk flags.",
         )
         assert_true(
             physics_chemistry["student_profile"]["rank_reference_year"] == 2025,

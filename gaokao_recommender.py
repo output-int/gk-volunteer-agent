@@ -143,6 +143,47 @@ def tier_from_rank_gap(rank: int, comparison_rank: int, risk_level: str) -> tupl
     return None, gap
 
 
+def volatility_level(volatility: float) -> str:
+    if volatility >= 5000:
+        return "high"
+    if volatility >= 2000:
+        return "medium"
+    return "low"
+
+
+def build_risk_flags(
+    *,
+    tier: str,
+    rank_gap: int | None,
+    rank: int | None,
+    volatility: float,
+    admission_type: str,
+    confidence: str,
+) -> list[str]:
+    flags: list[str] = []
+    level = volatility_level(volatility)
+    if level == "high":
+        flags.append("近年等效位次波动高")
+    elif level == "medium":
+        flags.append("近年等效位次波动中等")
+
+    if tier == "冲":
+        flags.append("冲刺档存在滑档风险")
+    if tier == "保" and level != "low":
+        flags.append("波动非低，不宜作为唯一保底")
+    if rank_gap is not None and rank is not None and rank > 0:
+        ratio = rank_gap / rank
+        if -0.1 < ratio < 0:
+            flags.append("与历史等效位次差距很小")
+        if 0 <= ratio < 0.08:
+            flags.append("稳妥余量较窄")
+    if admission_type != "普通类":
+        flags.append("特殊招生类型需核验资格")
+    if confidence != "high":
+        flags.append("数据置信度需复核")
+    return flags
+
+
 def fetch_reference_year(conn: sqlite3.Connection, profile: StudentProfile) -> int | None:
     row = conn.execute(
         """
@@ -274,17 +315,20 @@ def summarize_group(
     if profile.rank is None:
         tier = "待定位"
         rank_gap = None
+        rank_gap_ratio = None
         comparison_rank = latest_equivalent["equivalent_min_rank"]
     else:
         comparison_rank = latest_equivalent["equivalent_min_rank"]
         tier, rank_gap = tier_from_rank_gap(profile.rank, comparison_rank, profile.risk_level)
         if tier is None:
             return None, []
+        rank_gap_ratio = round(rank_gap / profile.rank, 4) if profile.rank > 0 else None
 
     ranks = [int(row["min_rank"]) for row in rows]
     equivalent_ranks = [int(item["equivalent_min_rank"]) for item in equivalent_rows]
     scores = [int(row["min_score"]) for row in rows]
     volatility = round(pstdev(equivalent_ranks), 2) if len(equivalent_ranks) > 1 else 0.0
+    volatility_label = volatility_level(volatility)
     trend = "趋难" if len(equivalent_ranks) > 1 and equivalent_ranks[-1] < equivalent_ranks[0] else "趋稳或趋易"
     volatility_note = ""
     if len(ranks) > 1 and volatility > 2500:
@@ -315,12 +359,22 @@ def summarize_group(
         "reference_above_batch_line_count": reference_above_count,
         "latest_equivalent_min_rank": comparison_rank,
         "rank_gap": rank_gap,
+        "rank_gap_ratio": rank_gap_ratio,
         "avg_min_rank": round(mean(ranks), 2),
         "avg_equivalent_min_rank": round(mean(equivalent_ranks), 2),
         "avg_min_score": round(mean(scores), 2),
         "volatility_score": volatility,
+        "volatility_level": volatility_label,
         "trend": trend,
         "subject_requirement_note": subject_note,
+        "risk_flags": build_risk_flags(
+            tier=tier,
+            rank_gap=rank_gap,
+            rank=profile.rank,
+            volatility=volatility,
+            admission_type=latest["admission_type"],
+            confidence=latest["confidence"],
+        ),
         "risk_notes": "；".join(
             note
             for note in [latest["risk_notes"], volatility_note, profile_row["risk_notes"] if profile_row else ""]
