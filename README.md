@@ -23,6 +23,7 @@ api_server.py            FastAPI HTTP 服务，供 Coze HTTP 节点调用
 verify_recommender.py    推荐层烟测
 verify_api.py            API 层烟测
 verify_importer.py       数据导入烟测
+run_checks.py            本地/CI 统一检查入口
 requirements.txt         API 依赖
 ```
 
@@ -178,6 +179,16 @@ GET /search/admissions?subject_type=物理&rank=20000&major_keyword=计算机&ac
 - 不承诺录取结果。
 
 ## 验证
+
+推荐直接运行：
+
+```powershell
+python run_checks.py
+```
+
+它会依次执行数据库初始化、导入器烟测、推荐层烟测、API 烟测、报告渲染和示例文件解析。
+
+也可以手动分步运行：
 
 ```powershell
 python init_db.py
