@@ -20,6 +20,7 @@ import_data.py           CSV 数据校验与导入
 gaokao_recommender.py    本地推荐/查询命令行
 report_renderer.py       将推荐 JSON 渲染为 Markdown 报告
 api_server.py            FastAPI HTTP 服务，供 Coze HTTP 节点调用
+export_openapi.py        导出 OpenAPI 规格
 verify_recommender.py    推荐层烟测
 verify_api.py            API 层烟测
 verify_importer.py       数据导入烟测
@@ -27,6 +28,7 @@ run_checks.py            本地/CI 统一检查入口
 requirements.txt         API 依赖
 Dockerfile               API 服务容器镜像
 docker-compose.yml       本地容器编排
+openapi/openapi.json      API OpenAPI 规格
 ```
 
 ## 初始化数据库
@@ -78,6 +80,22 @@ http://127.0.0.1:8000
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+## OpenAPI / Coze 导入
+
+生成 OpenAPI 规格：
+
+```powershell
+python export_openapi.py --check
+```
+
+生成文件：
+
+```text
+openapi/openapi.json
+```
+
+Coze 导入说明见 [docs/openapi_integration.md](D:/我的坚果云/13gaokao/docs/openapi_integration.md)。
 
 ## Docker 部署
 

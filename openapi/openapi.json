@@ -1,0 +1,502 @@
+{
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "RecommendRequest": {
+        "properties": {
+          "accept_sino_foreign": {
+            "default": false,
+            "description": "Whether Sino-foreign programs are accepted.",
+            "title": "Accept Sino Foreign",
+            "type": "boolean"
+          },
+          "major_interest": {
+            "default": "",
+            "description": "Major keyword, e.g. 计算机.",
+            "title": "Major Interest",
+            "type": "string"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Same-track Chongqing rank.",
+            "title": "Rank"
+          },
+          "risk_level": {
+            "default": "均衡",
+            "description": "保守 / 均衡 / 激进.",
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "score": {
+            "description": "Gaokao score.",
+            "maximum": 750.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "second_subjects": {
+            "description": "Second-choice subjects.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Second Subjects",
+            "type": "array"
+          },
+          "subject_type": {
+            "description": "物理 or 历史.",
+            "title": "Subject Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "score",
+          "subject_type",
+          "second_subjects"
+        ],
+        "title": "RecommendRequest",
+        "type": "object"
+      },
+      "RecommendResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "excluded": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "student_profile": {
+            "additionalProperties": true,
+            "title": "Student Profile",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "student_profile",
+          "warnings",
+          "candidates",
+          "excluded"
+        ],
+        "title": "RecommendResponse",
+        "type": "object"
+      },
+      "ReportResponse": {
+        "properties": {
+          "markdown_report": {
+            "title": "Markdown Report",
+            "type": "string"
+          },
+          "recommendation": {
+            "additionalProperties": true,
+            "title": "Recommendation",
+            "type": "object"
+          }
+        },
+        "required": [
+          "recommendation",
+          "markdown_report"
+        ],
+        "title": "ReportResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Deterministic SQLite-backed data API for a Chongqing Gaokao volunteer application Agent. Mock data only; official verification is required.",
+    "title": "Gaokao Volunteer Agent Data API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/admissions/trend": {
+      "get": {
+        "operationId": "admission_trend_admissions_trend_get",
+        "parameters": [
+          {
+            "description": "School name, e.g. 重庆邮电大学.",
+            "in": "query",
+            "name": "school_name",
+            "required": true,
+            "schema": {
+              "description": "School name, e.g. 重庆邮电大学.",
+              "title": "School Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Major name, e.g. 计算机类.",
+            "in": "query",
+            "name": "major_name",
+            "required": true,
+            "schema": {
+              "description": "Major name, e.g. 计算机类.",
+              "title": "Major Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject_type",
+            "required": true,
+            "schema": {
+              "pattern": "^(物理|历史)$",
+              "title": "Subject Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admission Trend Admissions Trend Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admission Trend"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/recommend": {
+      "post": {
+        "operationId": "recommend_endpoint_recommend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recommend Endpoint"
+      }
+    },
+    "/report": {
+      "post": {
+        "operationId": "report_endpoint_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Endpoint"
+      }
+    },
+    "/search/admissions": {
+      "get": {
+        "operationId": "search_admissions_search_admissions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject_type",
+            "required": true,
+            "schema": {
+              "pattern": "^(物理|历史)$",
+              "title": "Subject Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rank",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rank"
+            }
+          },
+          {
+            "in": "query",
+            "name": "major_keyword",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Major Keyword",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "accept_sino_foreign",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Accept Sino Foreign",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Search Admissions Search Admissions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Admissions"
+      }
+    },
+    "/subject-requirements": {
+      "get": {
+        "operationId": "subject_requirements_subject_requirements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "school_name",
+            "required": true,
+            "schema": {
+              "title": "School Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "major_name",
+            "required": true,
+            "schema": {
+              "title": "Major Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "requirement_year",
+            "required": false,
+            "schema": {
+              "default": 2026,
+              "maximum": 2030,
+              "minimum": 2021,
+              "title": "Requirement Year",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Subject Requirements Subject Requirements Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Subject Requirements"
+      }
+    }
+  }
+}
