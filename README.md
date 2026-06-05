@@ -47,10 +47,10 @@ python init_db.py --no-overwrite
 
 ## 本地命令行推荐
 
-物理类，已选化学，位次 20000 附近，查询计算机方向：
+物理类，已选化学，位次 20000 附近，同时查询计算机和电子信息方向：
 
 ```powershell
-python gaokao_recommender.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机
+python gaokao_recommender.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息
 ```
 
 物理类，未选化学，查询计算机方向，应触发选科拦截：

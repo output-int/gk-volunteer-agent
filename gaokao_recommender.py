@@ -51,6 +51,21 @@ def parse_subjects(raw: str) -> set[str]:
     return {part.strip() for part in normalized.split(",") if part.strip()}
 
 
+def parse_keywords(raw: str) -> list[str]:
+    separators = [",", "，", "、", "/", " "]
+    normalized = raw
+    for separator in separators:
+        normalized = normalized.replace(separator, ",")
+    seen: set[str] = set()
+    keywords: list[str] = []
+    for part in normalized.split(","):
+        keyword = part.strip()
+        if keyword and keyword not in seen:
+            seen.add(keyword)
+            keywords.append(keyword)
+    return keywords
+
+
 def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
@@ -168,32 +183,36 @@ def equivalent_rank(
 
 
 def fetch_history_rows(conn: sqlite3.Connection, profile: StudentProfile) -> list[sqlite3.Row]:
-    major_keyword = f"%{profile.major_interest.strip()}%" if profile.major_interest.strip() else "%"
+    keywords = parse_keywords(profile.major_interest)
+    keyword_sql = "1 = 1"
+    keyword_params: list[str] = []
+    if keywords:
+        keyword_clauses = []
+        for keyword in keywords:
+            keyword_clauses.append(
+                "(major_name LIKE ? OR major_category LIKE ? OR discipline_category LIKE ?)"
+            )
+            like_keyword = f"%{keyword}%"
+            keyword_params.extend([like_keyword, like_keyword, like_keyword])
+        keyword_sql = "(" + " OR ".join(keyword_clauses) + ")"
+
     return conn.execute(
-        """
+        f"""
         SELECT *
         FROM admission_history
         WHERE province = ?
           AND subject_type = ?
           AND batch = ?
           AND year IN (2024, 2025)
-          AND (
-              major_name LIKE ?
-              OR major_category LIKE ?
-              OR discipline_category LIKE ?
-              OR ? = '%'
-          )
+          AND {keyword_sql}
         ORDER BY school_name, major_name, year
         """,
-        (
+        [
             profile.province,
             profile.subject_type,
             profile.batch,
-            major_keyword,
-            major_keyword,
-            major_keyword,
-            major_keyword,
-        ),
+            *keyword_params,
+        ],
     ).fetchall()
 
 

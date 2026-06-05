@@ -90,6 +90,29 @@ def main() -> None:
             "Sino-foreign programs must be filtered when not accepted.",
         )
 
+        multi_keyword = run_case(
+            conn,
+            StudentProfile(
+                score=596,
+                rank=20000,
+                subject_type="物理",
+                second_subjects=parse_subjects("化学,生物"),
+                major_interest="计算机,电子信息",
+                risk_level="均衡",
+                accept_sino_foreign=False,
+            ),
+        )
+        assert_any(
+            multi_keyword["candidates"],
+            lambda item: item["major_name"] == "计算机类",
+            "Multi-keyword search should include Computer candidates.",
+        )
+        assert_any(
+            multi_keyword["candidates"],
+            lambda item: item["major_name"] == "电子信息类",
+            "Multi-keyword search should include Electronic Information candidates.",
+        )
+
         history_teacher = run_case(
             conn,
             StudentProfile(
