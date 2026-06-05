@@ -25,6 +25,8 @@ verify_api.py            API 层烟测
 verify_importer.py       数据导入烟测
 run_checks.py            本地/CI 统一检查入口
 requirements.txt         API 依赖
+Dockerfile               API 服务容器镜像
+docker-compose.yml       本地容器编排
 ```
 
 ## 初始化数据库
@@ -76,6 +78,14 @@ http://127.0.0.1:8000
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+## Docker 部署
+
+```powershell
+docker compose up --build
+```
+
+更多部署到 Coze 可访问公网地址的说明见 [docs/deployment.md](D:/我的坚果云/13gaokao/docs/deployment.md)。
 
 ## 主要接口
 
