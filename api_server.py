@@ -13,9 +13,9 @@ from gaokao_recommender import (
     DEFAULT_DB_PATH,
     StudentProfile,
     connect,
-    parse_subjects,
     recommend,
 )
+from report_renderer import render_report
 
 
 app = FastAPI(
@@ -57,6 +57,11 @@ class RecommendResponse(BaseModel):
     warnings: list[str]
     candidates: list[dict[str, Any]]
     excluded: list[dict[str, Any]]
+
+
+class ReportResponse(BaseModel):
+    recommendation: dict[str, Any]
+    markdown_report: str
 
 
 def ensure_db_exists(db_path: Path = DEFAULT_DB_PATH) -> None:
@@ -106,6 +111,26 @@ def recommend_endpoint(payload: RecommendRequest) -> dict[str, Any]:
     )
     with connect(DEFAULT_DB_PATH) as conn:
         return recommend(conn, profile)
+
+
+@app.post("/report", response_model=ReportResponse)
+def report_endpoint(payload: RecommendRequest) -> dict[str, Any]:
+    ensure_db_exists()
+    profile = StudentProfile(
+        score=payload.score,
+        rank=payload.rank,
+        subject_type=payload.subject_type,
+        second_subjects=set(payload.second_subjects),
+        major_interest=payload.major_interest,
+        risk_level=payload.risk_level,
+        accept_sino_foreign=payload.accept_sino_foreign,
+    )
+    with connect(DEFAULT_DB_PATH) as conn:
+        recommendation = recommend(conn, profile)
+    return {
+        "recommendation": recommendation,
+        "markdown_report": render_report(recommendation),
+    }
 
 
 @app.get("/admissions/trend")

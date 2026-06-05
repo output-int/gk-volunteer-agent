@@ -64,6 +64,24 @@ def main() -> None:
         "Recommendation candidates should expose equivalent-rank method.",
     )
 
+    report = client.post(
+        "/report",
+        json={
+            "score": 596,
+            "rank": 20000,
+            "subject_type": "物理",
+            "second_subjects": ["化学", "生物"],
+            "major_interest": "计算机",
+            "risk_level": "均衡",
+            "accept_sino_foreign": False,
+        },
+    )
+    assert_true(report.status_code == 200, report.text)
+    report_data = report.json()
+    assert_true("# 重庆高考志愿填报辅助报告" in report_data["markdown_report"], "Report title missing.")
+    assert_true("重庆邮电大学" in report_data["markdown_report"], "Report should include candidate details.")
+    assert_true("风险声明" in report_data["markdown_report"], "Report should include risk statement.")
+
     trend = client.get(
         "/admissions/trend",
         params={

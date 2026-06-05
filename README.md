@@ -18,6 +18,7 @@ data/samples/*.csv       导入器测试样例
 init_db.py               初始化 gaokao_agent.db
 import_data.py           CSV 数据校验与导入
 gaokao_recommender.py    本地推荐/查询命令行
+report_renderer.py       将推荐 JSON 渲染为 Markdown 报告
 api_server.py            FastAPI HTTP 服务，供 Coze HTTP 节点调用
 verify_recommender.py    推荐层烟测
 verify_api.py            API 层烟测
@@ -122,6 +123,24 @@ Coze 报告生成节点建议重点使用：
 - `candidates[].latest_equivalent_min_rank`：按参考年本科线上人数折算后的最低位次，用于冲稳保分档。
 - `candidates[].history[].equivalent_min_rank`：每年历史最低位次折算后的等效位次。
 - `excluded`：被硬规则过滤的院校专业及原因。
+
+### 生成 Markdown 报告
+
+```http
+POST /report
+Content-Type: application/json
+```
+
+请求体与 `/recommend` 一致。响应包含：
+
+```json
+{
+  "recommendation": {},
+  "markdown_report": "# 重庆高考志愿填报辅助报告\n..."
+}
+```
+
+如果只需要确定性报告草稿，Coze 可以直接调用 `/report`；如果需要模型润色，则把 `markdown_report` 作为草稿传入最终 LLM 节点。
 
 ### 查询院校专业走势
 

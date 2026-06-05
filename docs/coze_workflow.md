@@ -129,6 +129,21 @@ Body 模板：
 
 如果 `rank` 缺失，传 `null`。
 
+如果希望直接获取确定性 Markdown 报告草稿，也可以把 URL 改为：
+
+```text
+http://127.0.0.1:8000/report
+```
+
+`/report` 的请求体与 `/recommend` 一致，返回：
+
+```json
+{
+  "recommendation": {},
+  "markdown_report": "# 重庆高考志愿填报辅助报告\n..."
+}
+```
+
 返回字段使用建议：
 
 - `student_profile`: 用于报告中的考生画像。

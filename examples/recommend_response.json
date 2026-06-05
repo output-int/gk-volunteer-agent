@@ -1,116 +1,22 @@
-﻿{
+{
   "student_profile": {
     "score": 596,
     "rank": 20000,
-    "subject_type": "����",
+    "subject_type": "??",
     "second_subjects": [
-      "��ѧ",
-      "����"
+      "??"
     ],
-    "major_interest": "�����",
-    "risk_level": "����",
+    "major_interest": "???",
+    "risk_level": "??",
     "accept_sino_foreign": false,
-    "rank_reference_year": 2025,
-    "rank_reference_above_batch_line_count": 72000
+    "rank_reference_year": null,
+    "rank_reference_above_batch_line_count": null
   },
   "warnings": [
-    "Mock ���ݽ����ڿ������ԣ���������ʵ¼ȡ���ݡ�",
-    "2026 ��ʽ�ǰ������������н�������Ժ�������п���Ϣ�������߿��͸�У�����³̡�",
-    "���ȱ��ֵ�ʹ�� 2025 ��ͬ���౾���������������ĵ�Чλ�Ρ�"
+    "Mock 数据仅用于开发测试，不代表真实录取数据。",
+    "2026 正式填报前必须核验重庆市教育考试院、重庆招考信息网、阳光高考和高校招生章程。",
+    "缺少一分一段本科线上人数，当前推荐已退回原始位次比较。"
   ],
-  "candidates": [
-    {
-      "tier": "��",
-      "school_name": "�����ʵ��ѧ",
-      "major_name": "�������",
-      "major_group_code": "CQ-10617-P01",
-      "admission_type": "��ͨ��",
-      "latest_year": 2025,
-      "latest_min_score": 588,
-      "latest_min_rank": 18500,
-      "rank_method": "equivalent_rank",
-      "reference_year": 2025,
-      "reference_above_batch_line_count": 72000,
-      "latest_equivalent_min_rank": 18500,
-      "rank_gap": -1500,
-      "avg_min_rank": 19050,
-      "avg_equivalent_min_rank": 19330,
-      "avg_min_score": 586.5,
-      "volatility_score": 830.0,
-      "trend": "����",
-      "subject_requirement_note": "�������ѧ 2 �ſ�Ŀ����ѡ�����ɱ�����",
-      "risk_notes": "�������ͨ��Ҫ������+��ѧ������ 2026 �³�ǿУ�飻��ҵ�ȶȸߣ�����ԺУרҵ��仯�����������ǩ���ˡ�",
-      "employment_direction": "ͨ�Ż������������������Ϣ��ȫ��Ƕ��ʽ��ƽ̨�з�",
-      "source_url": "https://www.cqksy.cn/mock/2025/physics",
-      "confidence": "medium",
-      "history": [
-        {
-          "year": 2024,
-          "min_score": 585,
-          "min_rank": 19600,
-          "source_above_batch_line_count": 70000,
-          "equivalent_min_rank": 20160,
-          "source_type": "manual_verified"
-        },
-        {
-          "year": 2025,
-          "min_score": 588,
-          "min_rank": 18500,
-          "source_above_batch_line_count": 72000,
-          "equivalent_min_rank": 18500,
-          "source_type": "manual_verified"
-        }
-      ]
-    },
-    {
-      "tier": "��",
-      "school_name": "���������ѧ",
-      "major_name": "�������",
-      "major_group_code": "CQ-11660-P01",
-      "admission_type": "��ͨ��",
-      "latest_year": 2025,
-      "latest_min_score": 562,
-      "latest_min_rank": 33500,
-      "rank_method": "equivalent_rank",
-      "reference_year": 2025,
-      "reference_above_batch_line_count": 72000,
-      "latest_equivalent_min_rank": 33500,
-      "rank_gap": 13500,
-      "avg_min_rank": 34150,
-      "avg_equivalent_min_rank": 34647,
-      "avg_min_score": 560.5,
-      "volatility_score": 1147.0,
-      "trend": "����",
-      "subject_requirement_note": "�������ѧ 2 �ſ�Ŀ����ѡ�����ɱ�����",
-      "risk_notes": "λ�β����еȣ��ʺϲ�����/���߽�",
-      "employment_direction": null,
-      "source_url": "https://www.cqksy.cn/mock/2025/physics",
-      "confidence": "medium",
-      "history": [
-        {
-          "year": 2024,
-          "min_score": 559,
-          "min_rank": 34800,
-          "source_above_batch_line_count": 70000,
-          "equivalent_min_rank": 35794,
-          "source_type": "manual_verified"
-        },
-        {
-          "year": 2025,
-          "min_score": 562,
-          "min_rank": 33500,
-          "source_above_batch_line_count": 72000,
-          "equivalent_min_rank": 33500,
-          "source_type": "manual_verified"
-        }
-      ]
-    }
-  ],
-  "excluded": [
-    {
-      "school_name": "�����ʵ��ѧ",
-      "major_name": "�������(���������ѧ)",
-      "reason": "�û�δ�����������/��ѧ����Ŀ��"
-    }
-  ]
+  "candidates": [],
+  "excluded": []
 }
