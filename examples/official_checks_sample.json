@@ -1,0 +1,18 @@
+{
+  "official_checks": [
+    {
+      "school_name": "重庆邮电大学",
+      "major_name": "计算机类",
+      "status": "partial",
+      "findings": [
+        "需核验 2026 招生章程中的专业组名称、选科要求、学费和校区。",
+        "Mock 数据显示该方向通常要求物理+化学。"
+      ],
+      "source_urls": [
+        "https://www.cqksy.cn/",
+        "https://gaokao.chsi.com.cn/"
+      ],
+      "manual_check_required": true
+    }
+  ]
+}

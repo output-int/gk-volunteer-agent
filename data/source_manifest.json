@@ -1,0 +1,63 @@
+{
+  "scope": "重庆新高考普通类本科批，2021-2025 历史录取数据与一分一段表",
+  "priority_order": [
+    "重庆市教育考试院",
+    "重庆招考信息网",
+    "阳光高考",
+    "高校本科招生网或招生章程",
+    "第三方整理数据，仅用于交叉校验"
+  ],
+  "official_sources": [
+    {
+      "name": "重庆市教育考试院",
+      "url": "https://www.cqksy.cn/",
+      "expected_data": [
+        "普通高校招生信息表",
+        "普通高校招生各类考生分数段表",
+        "普通高校招生录取最低控制分数线"
+      ],
+      "source_type": "official",
+      "confidence": "high"
+    },
+    {
+      "name": "重庆招考信息网",
+      "url": "https://www.cqzk.com.cn/",
+      "expected_data": [
+        "志愿填报通知",
+        "招生计划和录取查询入口",
+        "考试院同步公告"
+      ],
+      "source_type": "official",
+      "confidence": "high"
+    },
+    {
+      "name": "阳光高考",
+      "url": "https://gaokao.chsi.com.cn/",
+      "expected_data": [
+        "高校招生章程",
+        "专业选考科目要求",
+        "院校库和专业库"
+      ],
+      "source_type": "official",
+      "confidence": "high"
+    }
+  ],
+  "third_party_cross_check": [
+    {
+      "name": "高考资讯网转载的重庆招生信息表",
+      "url": "https://www.gkzxw.com/",
+      "usage": "仅用于定位文件和交叉校验，入库 source_type 不应标记为 official，除非已核验原始来源。"
+    },
+    {
+      "name": "高考100等志愿数据整理站",
+      "url": "https://www.gk100.com/",
+      "usage": "仅用于交叉校验一分一段、批次线和位次口径，不作为唯一事实来源。"
+    }
+  ],
+  "notes": [
+    "真实入库前必须保留 source_url。",
+    "官方 PDF/Excel 转 CSV 后，必须按 data/templates 下的字段顺序导入。",
+    "普通类、中外合作、民族班、预科、专项计划必须分开标注，不得混入普通类。",
+    "2026 年不应作为录取历史年份，只能作为招生章程和选科要求核验年份。"
+  ]
+}

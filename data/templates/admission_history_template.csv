@@ -1,0 +1,2 @@
+year,province,subject_type,batch,school_code,school_name,major_group_code,major_code,major_name,major_category,discipline_category,admission_type,min_score,min_rank,plan_count,source_url,source_type,confidence,risk_notes
+2025,重庆,物理,本科批,10617,重庆邮电大学,CQ-10617-P01,0809,计算机类,计算机类,工学,普通类,588,18500,220,https://www.cqksy.cn/example,official,high,示例行；真实导入前替换为官方来源和真实数据

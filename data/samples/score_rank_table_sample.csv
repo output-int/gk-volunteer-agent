@@ -1,0 +1,3 @@
+year,province,subject_type,score,rank_min,rank_max,same_score_count,cumulative_count,batch_line_score,above_batch_line_count,source_url
+2025,重庆,物理,609,14001,14100,100,14100,425,103219,https://www.cqksy.cn/sample/score-rank
+2025,重庆,物理,581,22801,23000,200,23000,425,103219,https://www.cqksy.cn/sample/score-rank
