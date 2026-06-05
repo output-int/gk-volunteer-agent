@@ -70,6 +70,21 @@ def main() -> None:
             lambda item: item["school_name"] == "重庆邮电大学" and item["major_name"] == "计算机类",
             "CQUPT Computer should be returned for a Physics+Chemistry candidate.",
         )
+        assert_any(
+            physics_chemistry["candidates"],
+            lambda item: (
+                item["school_name"] == "重庆邮电大学"
+                and item["major_name"] == "计算机类"
+                and item["rank_method"] == "equivalent_rank"
+                and item["latest_equivalent_min_rank"] == 18500
+                and item["history"][0]["equivalent_min_rank"] == 20160
+            ),
+            "CQUPT Computer should expose equivalent-rank calculations.",
+        )
+        assert_true(
+            physics_chemistry["student_profile"]["rank_reference_year"] == 2025,
+            "Rank reference year should come from score_rank_table.",
+        )
         assert_true(
             all(item["admission_type"] != "中外合作" for item in physics_chemistry["candidates"]),
             "Sino-foreign programs must be filtered when not accepted.",

@@ -101,6 +101,7 @@ data/templates/score_rank_table_template.csv
 - 位次必须为正数。
 - `rank_max >= rank_min`。
 - `cumulative_count >= rank_max`。
+- `above_batch_line_count` 用于等效位次折算，必须来自同年同科类一分一段或官方批次线统计口径。
 - `source_type` 必须是 `official`、`third_party`、`manual_verified`。
 - `confidence` 必须是 `high`、`medium`、`low`。
 

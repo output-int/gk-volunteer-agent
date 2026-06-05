@@ -9,11 +9,14 @@
     ],
     "major_interest": "�����",
     "risk_level": "����",
-    "accept_sino_foreign": false
+    "accept_sino_foreign": false,
+    "rank_reference_year": 2025,
+    "rank_reference_above_batch_line_count": 72000
   },
   "warnings": [
     "Mock ���ݽ����ڿ������ԣ���������ʵ¼ȡ���ݡ�",
-    "2026 ��ʽ�ǰ������������н�������Ժ�������п���Ϣ�������߿��͸�У�����³̡�"
+    "2026 ��ʽ�ǰ������������н�������Ժ�������п���Ϣ�������߿��͸�У�����³̡�",
+    "���ȱ��ֵ�ʹ�� 2025 ��ͬ���౾���������������ĵ�Чλ�Ρ�"
   ],
   "candidates": [
     {
@@ -25,10 +28,15 @@
       "latest_year": 2025,
       "latest_min_score": 588,
       "latest_min_rank": 18500,
+      "rank_method": "equivalent_rank",
+      "reference_year": 2025,
+      "reference_above_batch_line_count": 72000,
+      "latest_equivalent_min_rank": 18500,
       "rank_gap": -1500,
       "avg_min_rank": 19050,
+      "avg_equivalent_min_rank": 19330,
       "avg_min_score": 586.5,
-      "volatility_score": 550.0,
+      "volatility_score": 830.0,
       "trend": "����",
       "subject_requirement_note": "�������ѧ 2 �ſ�Ŀ����ѡ�����ɱ�����",
       "risk_notes": "�������ͨ��Ҫ������+��ѧ������ 2026 �³�ǿУ�飻��ҵ�ȶȸߣ�����ԺУרҵ��仯�����������ǩ���ˡ�",
@@ -40,12 +48,16 @@
           "year": 2024,
           "min_score": 585,
           "min_rank": 19600,
+          "source_above_batch_line_count": 70000,
+          "equivalent_min_rank": 20160,
           "source_type": "manual_verified"
         },
         {
           "year": 2025,
           "min_score": 588,
           "min_rank": 18500,
+          "source_above_batch_line_count": 72000,
+          "equivalent_min_rank": 18500,
           "source_type": "manual_verified"
         }
       ]
@@ -59,10 +71,15 @@
       "latest_year": 2025,
       "latest_min_score": 562,
       "latest_min_rank": 33500,
+      "rank_method": "equivalent_rank",
+      "reference_year": 2025,
+      "reference_above_batch_line_count": 72000,
+      "latest_equivalent_min_rank": 33500,
       "rank_gap": 13500,
       "avg_min_rank": 34150,
+      "avg_equivalent_min_rank": 34647,
       "avg_min_score": 560.5,
-      "volatility_score": 650.0,
+      "volatility_score": 1147.0,
       "trend": "����",
       "subject_requirement_note": "�������ѧ 2 �ſ�Ŀ����ѡ�����ɱ�����",
       "risk_notes": "λ�β����еȣ��ʺϲ�����/���߽�",
@@ -74,12 +91,16 @@
           "year": 2024,
           "min_score": 559,
           "min_rank": 34800,
+          "source_above_batch_line_count": 70000,
+          "equivalent_min_rank": 35794,
           "source_type": "manual_verified"
         },
         {
           "year": 2025,
           "min_score": 562,
           "min_rank": 33500,
+          "source_above_batch_line_count": 72000,
+          "equivalent_min_rank": 33500,
           "source_type": "manual_verified"
         }
       ]

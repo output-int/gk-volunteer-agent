@@ -41,6 +41,29 @@ def main() -> None:
         "Missing Chemistry exclusion reason should be present.",
     )
 
+    recommendation = client.post(
+        "/recommend",
+        json={
+            "score": 596,
+            "rank": 20000,
+            "subject_type": "物理",
+            "second_subjects": ["化学", "生物"],
+            "major_interest": "计算机",
+            "risk_level": "均衡",
+            "accept_sino_foreign": False,
+        },
+    )
+    assert_true(recommendation.status_code == 200, recommendation.text)
+    recommendation_data = recommendation.json()
+    assert_true(
+        recommendation_data["student_profile"]["rank_reference_year"] == 2025,
+        "Recommendation should expose equivalent-rank reference year.",
+    )
+    assert_true(
+        any(item["rank_method"] == "equivalent_rank" for item in recommendation_data["candidates"]),
+        "Recommendation candidates should expose equivalent-rank method.",
+    )
+
     trend = client.get(
         "/admissions/trend",
         params={

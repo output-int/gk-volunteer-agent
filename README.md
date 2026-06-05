@@ -5,7 +5,7 @@
 核心原则：
 
 - 历史录取数据走 SQLite 结构化库。
-- 选科、招生类型、位次分档等硬规则由确定性代码处理。
+- 选科、招生类型、等效位次分档等硬规则由确定性代码处理。
 - LLM/Coze 只负责对结果进行解释、归纳和报告生成。
 - 当前数据全部是 Mock 数据，仅用于开发测试，不代表真实录取结果。
 
@@ -119,6 +119,8 @@ Coze 报告生成节点建议重点使用：
 
 - `warnings`：免责声明和核验提示。
 - `candidates`：冲稳保候选、近年分数位次、选科说明、就业方向、风险说明。
+- `candidates[].latest_equivalent_min_rank`：按参考年本科线上人数折算后的最低位次，用于冲稳保分档。
+- `candidates[].history[].equivalent_min_rank`：每年历史最低位次折算后的等效位次。
 - `excluded`：被硬规则过滤的院校专业及原因。
 
 ### 查询院校专业走势
@@ -178,7 +180,6 @@ All API smoke tests passed.
 ## 下一步
 
 - 按 [docs/data_import.md](D:/我的坚果云/13gaokao/docs/data_import.md) 将 Mock 数据替换为 2021-2025 重庆官方投档表、一分一段表和招生计划。
-- 增加等效位次折算。
 - 增加波动风险和大小年提示。
 - 接入官方实时检索结果缓存。
 - 为 Coze 输出完整 System Prompt 和报告模板。

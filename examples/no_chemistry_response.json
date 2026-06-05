@@ -9,11 +9,14 @@
     ],
     "major_interest": "�����",
     "risk_level": "����",
-    "accept_sino_foreign": false
+    "accept_sino_foreign": false,
+    "rank_reference_year": 2025,
+    "rank_reference_above_batch_line_count": 72000
   },
   "warnings": [
     "Mock ���ݽ����ڿ������ԣ���������ʵ¼ȡ���ݡ�",
-    "2026 ��ʽ�ǰ������������н�������Ժ�������п���Ϣ�������߿��͸�У�����³̡�"
+    "2026 ��ʽ�ǰ������������н�������Ժ�������п���Ϣ�������߿��͸�У�����³̡�",
+    "���ȱ��ֵ�ʹ�� 2025 ��ͬ���౾���������������ĵ�Чλ�Ρ�"
   ],
   "candidates": [],
   "excluded": [

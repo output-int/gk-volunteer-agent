@@ -102,8 +102,8 @@ def admission_type_allowed(profile: StudentProfile, admission_type: str) -> tupl
     return True, "招生类型符合当前偏好。"
 
 
-def tier_from_rank_gap(rank: int, min_rank: int, risk_level: str) -> tuple[str | None, int]:
-    gap = min_rank - rank
+def tier_from_rank_gap(rank: int, comparison_rank: int, risk_level: str) -> tuple[str | None, int]:
+    gap = comparison_rank - rank
     # Positive gap means the student's rank is better than the historical minimum rank.
     if risk_level == "保守":
         challenge_floor = -0.10
@@ -126,6 +126,45 @@ def tier_from_rank_gap(rank: int, min_rank: int, risk_level: str) -> tuple[str |
     if relative_gap > safe_floor:
         return "保", gap
     return None, gap
+
+
+def fetch_reference_year(conn: sqlite3.Connection, profile: StudentProfile) -> int | None:
+    row = conn.execute(
+        """
+        SELECT MAX(year) AS reference_year
+        FROM score_rank_table
+        WHERE province = ?
+          AND subject_type = ?
+        """,
+        (profile.province, profile.subject_type),
+    ).fetchone()
+    return int(row["reference_year"]) if row and row["reference_year"] is not None else None
+
+
+def fetch_above_batch_line_count(
+    conn: sqlite3.Connection, year: int, province: str, subject_type: str
+) -> int | None:
+    row = conn.execute(
+        """
+        SELECT MAX(above_batch_line_count) AS above_count
+        FROM score_rank_table
+        WHERE year = ?
+          AND province = ?
+          AND subject_type = ?
+        """,
+        (year, province, subject_type),
+    ).fetchone()
+    return int(row["above_count"]) if row and row["above_count"] is not None else None
+
+
+def equivalent_rank(
+    raw_rank: int,
+    source_above_count: int | None,
+    target_above_count: int | None,
+) -> int:
+    if not source_above_count or not target_above_count:
+        return raw_rank
+    return max(1, round(raw_rank / source_above_count * target_above_count))
 
 
 def fetch_history_rows(conn: sqlite3.Connection, profile: StudentProfile) -> list[sqlite3.Row]:
@@ -159,7 +198,11 @@ def fetch_history_rows(conn: sqlite3.Connection, profile: StudentProfile) -> lis
 
 
 def summarize_group(
-    conn: sqlite3.Connection, profile: StudentProfile, rows: list[sqlite3.Row]
+    conn: sqlite3.Connection,
+    profile: StudentProfile,
+    rows: list[sqlite3.Row],
+    reference_year: int | None,
+    reference_above_count: int | None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     latest = max(rows, key=lambda row: row["year"])
     excluded: list[dict[str, Any]] = []
@@ -187,18 +230,43 @@ def summarize_group(
         )
         return None, excluded
 
+    equivalent_rows = []
+    for row in sorted(rows, key=lambda history_row: history_row["year"]):
+        source_above_count = fetch_above_batch_line_count(
+            conn,
+            int(row["year"]),
+            row["province"],
+            row["subject_type"],
+        )
+        equivalent_rows.append(
+            {
+                "row": row,
+                "source_above_batch_line_count": source_above_count,
+                "equivalent_min_rank": equivalent_rank(
+                    int(row["min_rank"]),
+                    source_above_count,
+                    reference_above_count,
+                ),
+            }
+        )
+
+    latest_equivalent = next(item for item in equivalent_rows if item["row"]["id"] == latest["id"])
+
     if profile.rank is None:
         tier = "待定位"
         rank_gap = None
+        comparison_rank = latest_equivalent["equivalent_min_rank"]
     else:
-        tier, rank_gap = tier_from_rank_gap(profile.rank, latest["min_rank"], profile.risk_level)
+        comparison_rank = latest_equivalent["equivalent_min_rank"]
+        tier, rank_gap = tier_from_rank_gap(profile.rank, comparison_rank, profile.risk_level)
         if tier is None:
             return None, []
 
     ranks = [int(row["min_rank"]) for row in rows]
+    equivalent_ranks = [int(item["equivalent_min_rank"]) for item in equivalent_rows]
     scores = [int(row["min_score"]) for row in rows]
-    volatility = round(pstdev(ranks), 2) if len(ranks) > 1 else 0.0
-    trend = "趋难" if len(ranks) > 1 and ranks[-1] < ranks[0] else "趋稳或趋易"
+    volatility = round(pstdev(equivalent_ranks), 2) if len(equivalent_ranks) > 1 else 0.0
+    trend = "趋难" if len(equivalent_ranks) > 1 and equivalent_ranks[-1] < equivalent_ranks[0] else "趋稳或趋易"
     volatility_note = ""
     if len(ranks) > 1 and volatility > 2500:
         volatility_note = "近年最低位次波动较大，不宜作为保底志愿。"
@@ -223,8 +291,13 @@ def summarize_group(
         "latest_year": latest["year"],
         "latest_min_score": latest["min_score"],
         "latest_min_rank": latest["min_rank"],
+        "rank_method": "equivalent_rank" if reference_year and reference_above_count else "raw_rank",
+        "reference_year": reference_year,
+        "reference_above_batch_line_count": reference_above_count,
+        "latest_equivalent_min_rank": comparison_rank,
         "rank_gap": rank_gap,
         "avg_min_rank": round(mean(ranks), 2),
+        "avg_equivalent_min_rank": round(mean(equivalent_ranks), 2),
         "avg_min_score": round(mean(scores), 2),
         "volatility_score": volatility,
         "trend": trend,
@@ -239,12 +312,14 @@ def summarize_group(
         "confidence": latest["confidence"],
         "history": [
             {
-                "year": row["year"],
-                "min_score": row["min_score"],
-                "min_rank": row["min_rank"],
-                "source_type": row["source_type"],
+                "year": item["row"]["year"],
+                "min_score": item["row"]["min_score"],
+                "min_rank": item["row"]["min_rank"],
+                "source_above_batch_line_count": item["source_above_batch_line_count"],
+                "equivalent_min_rank": item["equivalent_min_rank"],
+                "source_type": item["row"]["source_type"],
             }
-            for row in sorted(rows, key=lambda row: row["year"])
+            for item in equivalent_rows
         ],
     }
     return item, excluded
@@ -252,6 +327,12 @@ def summarize_group(
 
 def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, Any]:
     history_rows = fetch_history_rows(conn, profile)
+    reference_year = fetch_reference_year(conn, profile)
+    reference_above_count = (
+        fetch_above_batch_line_count(conn, reference_year, profile.province, profile.subject_type)
+        if reference_year is not None
+        else None
+    )
     grouped: dict[tuple[str, str, str], list[sqlite3.Row]] = {}
     for row in history_rows:
         key = (row["school_name"], row["major_name"], row["admission_type"])
@@ -260,7 +341,13 @@ def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, An
     candidates: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     for rows in grouped.values():
-        item, excluded_items = summarize_group(conn, profile, rows)
+        item, excluded_items = summarize_group(
+            conn,
+            profile,
+            rows,
+            reference_year,
+            reference_above_count,
+        )
         excluded.extend(excluded_items)
         if item is not None:
             candidates.append(item)
@@ -270,7 +357,7 @@ def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, An
         key=lambda item: (
             tier_order.get(item["tier"], 9),
             abs(item["rank_gap"]) if item["rank_gap"] is not None else 0,
-            item["latest_min_rank"],
+            item["latest_equivalent_min_rank"],
         )
     )
 
@@ -280,6 +367,10 @@ def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, An
     ]
     if profile.rank is None:
         warnings.append("缺少位次，冲稳保只能降级为粗略候选，建议补充重庆同科类位次。")
+    if reference_year is None or reference_above_count is None:
+        warnings.append("缺少一分一段本科线上人数，当前推荐已退回原始位次比较。")
+    else:
+        warnings.append(f"冲稳保分档使用 {reference_year} 年同科类本科线上人数折算后的等效位次。")
 
     return {
         "student_profile": {
@@ -290,6 +381,8 @@ def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, An
             "major_interest": profile.major_interest,
             "risk_level": profile.risk_level,
             "accept_sino_foreign": profile.accept_sino_foreign,
+            "rank_reference_year": reference_year,
+            "rank_reference_above_batch_line_count": reference_above_count,
         },
         "warnings": warnings,
         "candidates": candidates,
