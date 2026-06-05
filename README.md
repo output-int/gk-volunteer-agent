@@ -18,11 +18,13 @@ data/samples/*.csv       导入器测试样例
 init_db.py               初始化 gaokao_agent.db
 import_data.py           CSV 数据校验与导入
 gaokao_recommender.py    本地推荐/查询命令行
+local_agent.py           本地交互式终端 Agent
 report_renderer.py       将推荐 JSON 渲染为 Markdown 报告
 api_server.py            FastAPI HTTP 服务
 verify_recommender.py    推荐层烟测
 verify_api.py            API 层烟测
 verify_importer.py       数据导入烟测
+verify_local_agent.py    本地终端 Agent 烟测
 run_checks.py            本地/CI 统一检查入口
 requirements.txt         API 依赖
 ```
@@ -57,6 +59,26 @@ python gaokao_recommender.py --score 596 --rank 20000 --subject-type 物理 --se
 
 ```powershell
 python gaokao_recommender.py --score 590 --rank 22000 --subject-type 物理 --second-subjects 生物,地理 --major-interest 计算机
+```
+
+## 本地终端 Agent
+
+交互式运行：
+
+```powershell
+python local_agent.py
+```
+
+非交互生成 Markdown 报告：
+
+```powershell
+python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息
+```
+
+输出 JSON：
+
+```powershell
+python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息 --json
 ```
 
 ## 启动 HTTP API

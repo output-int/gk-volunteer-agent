@@ -50,6 +50,7 @@ def main() -> None:
     run([python, "verify_importer.py"])
     run([python, "verify_recommender.py"])
     run([python, "verify_api.py"])
+    run([python, "verify_local_agent.py"])
     run(
         [
             python,
