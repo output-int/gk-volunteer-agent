@@ -115,6 +115,25 @@ def main() -> None:
             "Multi-keyword search should include Electronic Information candidates.",
         )
 
+        alias_keyword = run_case(
+            conn,
+            StudentProfile(
+                score=590,
+                rank=22000,
+                subject_type="物理",
+                second_subjects=parse_subjects("生物,地理"),
+                major_interest="计算机科学与技术",
+                risk_level="均衡",
+                accept_sino_foreign=False,
+            ),
+        )
+        assert_true(alias_keyword["candidates"] == [], "Computer alias without Chemistry should be blocked.")
+        assert_any(
+            alias_keyword["excluded"],
+            lambda item: "缺少 化学" in item["reason"],
+            "Computer alias should surface Chemistry requirement.",
+        )
+
         history_teacher = run_case(
             conn,
             StudentProfile(

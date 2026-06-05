@@ -19,6 +19,7 @@ init_db.py               初始化 gaokao_agent.db
 import_data.py           CSV 数据校验与导入
 gaokao_recommender.py    本地推荐/查询命令行
 local_agent.py           本地交互式终端 Agent
+evaluate_cases.py        批量运行 recommendation_case 评测案例
 report_renderer.py       将推荐 JSON 渲染为 Markdown 报告
 api_server.py            FastAPI HTTP 服务
 verify_recommender.py    推荐层烟测
@@ -79,6 +80,20 @@ python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-su
 
 ```powershell
 python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息 --json
+```
+
+## 本地批量评测
+
+运行数据库内置的 Mock 考生案例：
+
+```powershell
+python evaluate_cases.py
+```
+
+同时导出每个案例的 JSON 和 Markdown：
+
+```powershell
+python evaluate_cases.py --output-dir outputs/eval
 ```
 
 ## 启动 HTTP API

@@ -66,6 +66,29 @@ def parse_keywords(raw: str) -> list[str]:
     return keywords
 
 
+def expand_keywords(keywords: list[str]) -> list[str]:
+    expansions = {
+        "计算机": ["计算机", "软件工程", "人工智能", "数据科学"],
+        "电子信息": ["电子信息", "通信工程", "信息工程"],
+        "临床医学": ["临床医学", "医学"],
+        "汉语言文学": ["汉语言文学", "中国语言文学"],
+        "思想政治教育": ["思想政治教育", "马克思主义理论"],
+        "软件工程": ["软件工程", "计算机"],
+    }
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for keyword in keywords:
+        candidates = [keyword]
+        for trigger, values in expansions.items():
+            if trigger in keyword:
+                candidates.extend(values)
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                expanded.append(candidate)
+    return expanded
+
+
 def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
@@ -224,7 +247,7 @@ def equivalent_rank(
 
 
 def fetch_history_rows(conn: sqlite3.Connection, profile: StudentProfile) -> list[sqlite3.Row]:
-    keywords = parse_keywords(profile.major_interest)
+    keywords = expand_keywords(parse_keywords(profile.major_interest))
     keyword_sql = "1 = 1"
     keyword_params: list[str] = []
     if keywords:

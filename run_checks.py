@@ -51,6 +51,7 @@ def main() -> None:
     run([python, "verify_recommender.py"])
     run([python, "verify_api.py"])
     run([python, "verify_local_agent.py"])
+    run([python, "evaluate_cases.py"])
     run(
         [
             python,
