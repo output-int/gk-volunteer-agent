@@ -21,6 +21,27 @@ def main() -> None:
     assert_true(health.status_code == 200, f"health failed: {health.text}")
     assert_true(health.json()["ok"] is True, f"database is not healthy: {health.json()}")
 
+    home = client.get("/")
+    assert_true(home.status_code == 200, home.text)
+    assert_true("重庆高考志愿填报 Agent 本地原型" in home.text, "Local web home title missing.")
+    assert_true('action="/web/report"' in home.text, "Local web form action missing.")
+
+    web_report = client.get(
+        "/web/report",
+        params={
+            "score": 596,
+            "rank": 20000,
+            "subject_type": "物理",
+            "second_subjects": "化学,生物",
+            "major_interest": "计算机",
+            "risk_level": "均衡",
+            "accept_sino_foreign": False,
+        },
+    )
+    assert_true(web_report.status_code == 200, web_report.text)
+    assert_true("报告草稿" in web_report.text, "Local web report section missing.")
+    assert_true("重庆邮电大学" in web_report.text, "Local web report should include candidate details.")
+
     no_chemistry = client.post(
         "/recommend",
         json={

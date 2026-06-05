@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
 from gaokao_recommender import (
@@ -64,6 +66,18 @@ class ReportResponse(BaseModel):
     markdown_report: str
 
 
+def build_profile(payload: RecommendRequest) -> StudentProfile:
+    return StudentProfile(
+        score=payload.score,
+        rank=payload.rank,
+        subject_type=payload.subject_type,
+        second_subjects=set(payload.second_subjects),
+        major_interest=payload.major_interest,
+        risk_level=payload.risk_level,
+        accept_sino_foreign=payload.accept_sino_foreign,
+    )
+
+
 def ensure_db_exists(db_path: Path = DEFAULT_DB_PATH) -> None:
     if not db_path.exists():
         raise HTTPException(
@@ -97,36 +111,194 @@ def health() -> dict[str, Any]:
     }
 
 
+def render_local_form(markdown_report: str | None = None) -> str:
+    report_html = ""
+    if markdown_report is not None:
+        report_html = f"""
+        <section class="report">
+          <h2>报告草稿</h2>
+          <pre>{escape(markdown_report)}</pre>
+        </section>
+        """
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>重庆高考志愿填报 Agent 本地原型</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172026;
+      background: #f7f8fa;
+    }}
+    main {{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 28px;
+    }}
+    .subtitle {{
+      margin: 0 0 24px;
+      color: #5a6672;
+    }}
+    form {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #dfe4ea;
+      border-radius: 8px;
+    }}
+    label {{
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+    }}
+    input, select {{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border: 1px solid #c8d0d9;
+      border-radius: 6px;
+      font: inherit;
+      background: #fff;
+    }}
+    .full {{
+      grid-column: 1 / -1;
+    }}
+    .check {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }}
+    .check input {{
+      width: auto;
+    }}
+    button {{
+      justify-self: start;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 6px;
+      background: #1d4ed8;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }}
+    .report {{
+      margin-top: 24px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #dfe4ea;
+      border-radius: 8px;
+    }}
+    pre {{
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 14px;
+    }}
+    @media (max-width: 720px) {{
+      form {{
+        grid-template-columns: 1fr;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>重庆高考志愿填报 Agent 本地原型</h1>
+    <p class="subtitle">本页面使用本地 Mock 数据和确定性 Python 规则生成冲稳保报告，不代表真实录取结果。</p>
+    <form method="get" action="/web/report">
+      <label>分数
+        <input name="score" type="number" min="0" max="750" value="596" required>
+      </label>
+      <label>位次
+        <input name="rank" type="number" min="1" value="20000">
+      </label>
+      <label>首选科目
+        <select name="subject_type">
+          <option value="物理" selected>物理</option>
+          <option value="历史">历史</option>
+        </select>
+      </label>
+      <label>再选科目（用逗号分隔）
+        <input name="second_subjects" value="化学,生物" required>
+      </label>
+      <label>专业兴趣
+        <input name="major_interest" value="计算机">
+      </label>
+      <label>风险偏好
+        <select name="risk_level">
+          <option value="保守">保守</option>
+          <option value="均衡" selected>均衡</option>
+          <option value="激进">激进</option>
+        </select>
+      </label>
+      <label class="check full">
+        <input name="accept_sino_foreign" type="checkbox" value="true">
+        接受中外合作/高学费项目
+      </label>
+      <button class="full" type="submit">生成报告</button>
+    </form>
+    {report_html}
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/", response_class=HTMLResponse)
+def local_home() -> HTMLResponse:
+    return HTMLResponse(render_local_form())
+
+
+@app.get("/web/report", response_class=HTMLResponse)
+def local_report(
+    score: int = Query(..., ge=0, le=750),
+    rank: int | None = Query(None, gt=0),
+    subject_type: str = Query(..., pattern="^(物理|历史)$"),
+    second_subjects: str = Query(...),
+    major_interest: str = Query(""),
+    risk_level: str = Query("均衡", pattern="^(保守|均衡|激进)$"),
+    accept_sino_foreign: bool = Query(False),
+) -> HTMLResponse:
+    ensure_db_exists()
+    payload = RecommendRequest(
+        score=score,
+        rank=rank,
+        subject_type=subject_type,
+        second_subjects=[part.strip() for part in second_subjects.replace("，", ",").split(",") if part.strip()],
+        major_interest=major_interest,
+        risk_level=risk_level,
+        accept_sino_foreign=accept_sino_foreign,
+    )
+    with connect(DEFAULT_DB_PATH) as conn:
+        recommendation = recommend(conn, build_profile(payload))
+    return HTMLResponse(render_local_form(render_report(recommendation)))
+
+
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(payload: RecommendRequest) -> dict[str, Any]:
     ensure_db_exists()
-    profile = StudentProfile(
-        score=payload.score,
-        rank=payload.rank,
-        subject_type=payload.subject_type,
-        second_subjects=set(payload.second_subjects),
-        major_interest=payload.major_interest,
-        risk_level=payload.risk_level,
-        accept_sino_foreign=payload.accept_sino_foreign,
-    )
     with connect(DEFAULT_DB_PATH) as conn:
-        return recommend(conn, profile)
+        return recommend(conn, build_profile(payload))
 
 
 @app.post("/report", response_model=ReportResponse)
 def report_endpoint(payload: RecommendRequest) -> dict[str, Any]:
     ensure_db_exists()
-    profile = StudentProfile(
-        score=payload.score,
-        rank=payload.rank,
-        subject_type=payload.subject_type,
-        second_subjects=set(payload.second_subjects),
-        major_interest=payload.major_interest,
-        risk_level=payload.risk_level,
-        accept_sino_foreign=payload.accept_sino_foreign,
-    )
     with connect(DEFAULT_DB_PATH) as conn:
-        recommendation = recommend(conn, profile)
+        recommendation = recommend(conn, build_profile(payload))
     return {
         "recommendation": recommendation,
         "markdown_report": render_report(recommendation),
