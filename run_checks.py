@@ -27,21 +27,6 @@ def verify_static_files() -> None:
         json.loads(text)
         print(f"JSON OK: {path.relative_to(ROOT)}")
 
-    openapi_path = ROOT / "openapi" / "openapi.json"
-    openapi_schema = json.loads(openapi_path.read_text(encoding="utf-8"))
-    required_paths = {
-        "/health",
-        "/recommend",
-        "/report",
-        "/admissions/trend",
-        "/subject-requirements",
-        "/search/admissions",
-    }
-    missing_paths = sorted(required_paths - set(openapi_schema.get("paths", {})))
-    if missing_paths:
-        raise ValueError(f"OpenAPI schema is missing paths: {missing_paths}")
-    print(f"OPENAPI OK: {openapi_path.relative_to(ROOT)} paths={len(openapi_schema.get('paths', {}))}")
-
     for path in sorted(ROOT.glob("data/**/*.csv")):
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             rows = list(csv.DictReader(handle))
@@ -49,11 +34,8 @@ def verify_static_files() -> None:
 
     for path in [
         ROOT / "README.md",
-        ROOT / "docs" / "coze_workflow.md",
         ROOT / "docs" / "data_import.md",
         ROOT / "docs" / "report_template.md",
-        ROOT / "docs" / "deployment.md",
-        ROOT / "docs" / "openapi_integration.md",
         ROOT / "examples" / "recommend_report.md",
     ]:
         text = path.read_text(encoding="utf-8-sig")
@@ -80,7 +62,6 @@ def main() -> None:
             "examples/recommend_report.md",
         ]
     )
-    run([python, "export_openapi.py", "--check"])
     verify_static_files()
     print("\nAll checks passed.")
 

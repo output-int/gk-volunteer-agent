@@ -6,7 +6,7 @@
 
 - 历史录取数据走 SQLite 结构化库。
 - 选科、招生类型、等效位次分档等硬规则由确定性代码处理。
-- LLM/Coze 只负责对结果进行解释、归纳和报告生成。
+- Markdown 报告由确定性 Python 模块生成，后续可按需要再接入其他展示层。
 - 当前数据全部是 Mock 数据，仅用于开发测试，不代表真实录取结果。
 
 ## 文件结构
@@ -19,16 +19,12 @@ init_db.py               初始化 gaokao_agent.db
 import_data.py           CSV 数据校验与导入
 gaokao_recommender.py    本地推荐/查询命令行
 report_renderer.py       将推荐 JSON 渲染为 Markdown 报告
-api_server.py            FastAPI HTTP 服务，供 Coze HTTP 节点调用
-export_openapi.py        导出 OpenAPI 规格
+api_server.py            FastAPI HTTP 服务
 verify_recommender.py    推荐层烟测
 verify_api.py            API 层烟测
 verify_importer.py       数据导入烟测
 run_checks.py            本地/CI 统一检查入口
 requirements.txt         API 依赖
-Dockerfile               API 服务容器镜像
-docker-compose.yml       本地容器编排
-openapi/openapi.json      API OpenAPI 规格
 ```
 
 ## 初始化数据库
@@ -69,6 +65,12 @@ python gaokao_recommender.py --score 590 --rank 22000 --subject-type 物理 --se
 python api_server.py
 ```
 
+也可以显式使用 uvicorn：
+
+```powershell
+python -m uvicorn api_server:app --host 127.0.0.1 --port 8000 --reload
+```
+
 默认地址：
 
 ```text
@@ -80,30 +82,6 @@ http://127.0.0.1:8000
 ```text
 http://127.0.0.1:8000/docs
 ```
-
-## OpenAPI / Coze 导入
-
-生成 OpenAPI 规格：
-
-```powershell
-python export_openapi.py --check
-```
-
-生成文件：
-
-```text
-openapi/openapi.json
-```
-
-Coze 导入说明见 [docs/openapi_integration.md](D:/我的坚果云/13gaokao/docs/openapi_integration.md)。
-
-## Docker 部署
-
-```powershell
-docker compose up --build
-```
-
-更多部署到 Coze 可访问公网地址的说明见 [docs/deployment.md](D:/我的坚果云/13gaokao/docs/deployment.md)。
 
 ## 主要接口
 
@@ -145,7 +123,7 @@ Content-Type: application/json
 }
 ```
 
-Coze 报告生成节点建议重点使用：
+结构化推荐结果建议重点查看：
 
 - `warnings`：免责声明和核验提示。
 - `candidates`：冲稳保候选、近年分数位次、选科说明、就业方向、风险说明。
@@ -169,7 +147,7 @@ Content-Type: application/json
 }
 ```
 
-如果只需要确定性报告草稿，Coze 可以直接调用 `/report`；如果需要模型润色，则把 `markdown_report` 作为草稿传入最终 LLM 节点。
+如果只需要本地确定性报告草稿，直接调用 `/report` 并读取 `markdown_report`。
 
 ### 查询院校专业走势
 
@@ -189,22 +167,21 @@ GET /subject-requirements?school_name=重庆医科大学&major_name=临床医学
 GET /search/admissions?subject_type=物理&rank=20000&major_keyword=计算机&accept_sino_foreign=false
 ```
 
-## Coze 集成建议
+## 本地 API 快速测试
 
-工作流节点顺序建议：
+启动服务后，另开一个终端运行：
 
-1. Start：采集分数、位次、物理/历史、再选科目、专业兴趣、风险偏好、是否接受中外合作。
-2. 参数校验：缺位次则提醒降级；缺选科则追问。
-3. HTTP 节点：调用本服务 `/recommend`。
-4. 官方检索节点：核验 2026 招生章程、选科要求、学费、校区、体检限制。
-5. LLM 报告节点：基于 `/recommend` 的 JSON 和官方检索结果生成报告。
+查看冲稳保结构化结果：
 
-报告必须包含：
+```powershell
+python -c "import json, urllib.request; data={'score':596,'rank':20000,'subject_type':'物理','second_subjects':['化学','生物'],'major_interest':'计算机','risk_level':'均衡','accept_sino_foreign':False}; req=urllib.request.Request('http://127.0.0.1:8000/recommend', data=json.dumps(data).encode('utf-8'), headers={'Content-Type':'application/json'}, method='POST'); print(json.dumps(json.load(urllib.request.urlopen(req)), ensure_ascii=False, indent=2))"
+```
 
-- 数据来源说明。
-- Mock/历史数据不代表最终录取的提醒。
-- 官方核验清单。
-- 不承诺录取结果。
+查看 Markdown 报告：
+
+```powershell
+python -c "import json, urllib.request; data={'score':596,'rank':20000,'subject_type':'物理','second_subjects':['化学','生物'],'major_interest':'计算机','risk_level':'均衡','accept_sino_foreign':False}; req=urllib.request.Request('http://127.0.0.1:8000/report', data=json.dumps(data).encode('utf-8'), headers={'Content-Type':'application/json'}, method='POST'); print(json.load(urllib.request.urlopen(req))['markdown_report'])"
+```
 
 ## 验证
 
@@ -239,5 +216,4 @@ All API smoke tests passed.
 
 - 按 [docs/data_import.md](D:/我的坚果云/13gaokao/docs/data_import.md) 将 Mock 数据替换为 2021-2025 重庆官方投档表、一分一段表和招生计划。
 - 增加波动风险和大小年提示。
-- 接入官方实时检索结果缓存。
-- 为 Coze 输出完整 System Prompt 和报告模板。
+- 增加本地前端页面或命令行交互入口。
