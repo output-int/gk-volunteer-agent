@@ -44,6 +44,7 @@ def main() -> None:
     assert_true("重庆高考志愿填报 Agent 本地原型" in home.text, "Local web home title missing.")
     assert_true('action="/web/report"' in home.text, "Local web form action missing.")
     assert_true('href="/web/data-quality"' in home.text, "Local data-quality page link missing.")
+    assert_true('href="/web/official-verify"' in home.text, "Local official-verify page link missing.")
 
     data_quality_page = client.get("/web/data-quality")
     assert_true(data_quality_page.status_code == 200, data_quality_page.text)
@@ -64,6 +65,31 @@ def main() -> None:
     assert_true(data_gaps_md.status_code == 200, data_gaps_md.text)
     assert_true(data_gaps_md.headers["content-type"].startswith("text/markdown"), "Data gap Markdown content type missing.")
     assert_true("高考志愿填报 Agent 数据补全清单" in data_gaps_md.text, "Data gap Markdown title missing.")
+
+    official_verify = client.get("/official-verify")
+    assert_true(official_verify.status_code == 200, official_verify.text)
+    official_verify_data = official_verify.json()
+    assert_true(
+        official_verify_data["official_entry_url"] == "https://gaokao.chsi.com.cn/z/gkbmfslq/zytb.jsp",
+        "Official verify JSON should expose CHSI entry URL.",
+    )
+    assert_true(official_verify_data["admission_coverage"], "Official verify JSON should include admission coverage.")
+    assert_true(official_verify_data["score_rank_coverage"], "Official verify JSON should include score-rank coverage.")
+    assert_true("min_rank" in official_verify_data["rank_note"], "Official verify JSON should include rank note.")
+    assert_true(
+        official_verify_data["future_year_historical_data_status"] == "not_published",
+        "Official verify JSON should mark 2026 historical data as not published.",
+    )
+
+    official_verify_page = client.get("/web/official-verify")
+    assert_true(official_verify_page.status_code == 200, official_verify_page.text)
+    assert_true("官方核验" in official_verify_page.text, "Official verify page title missing.")
+    assert_true("投档表覆盖" in official_verify_page.text, "Official verify page should include admission coverage.")
+    assert_true("2026 录取历史数据尚未公布" in official_verify_page.text, "Official verify page should clarify 2026 status.")
+    assert_true(
+        "gaokao.chsi.com.cn/z/gkbmfslq/zytb.jsp" in official_verify_page.text,
+        "Official verify page should link to CHSI.",
+    )
 
     web_report = client.get(
         "/web/report",

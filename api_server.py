@@ -23,6 +23,8 @@ from gaokao_recommender import (
 from report_renderer import build_official_checks, render_report
 from validate_data import GAP_COLUMNS, collect_data_gaps, render_gap_markdown, summarize_counts, validate_database
 
+CHSI_VOLUNTEER_URL = "https://gaokao.chsi.com.cn/z/gkbmfslq/zytb.jsp"
+
 
 app = FastAPI(
     title="Gaokao Volunteer Agent Data API",
@@ -177,6 +179,89 @@ def data_gaps_csv(gaps: list[dict[str, Any]]) -> str:
     return buffer.getvalue()
 
 
+def build_official_verify_payload() -> dict[str, Any]:
+    ensure_db_exists()
+    gaps = collect_data_gaps(DEFAULT_DB_PATH)
+    with connect(DEFAULT_DB_PATH) as conn:
+        admission_rows = conn.execute(
+            """
+            SELECT year, subject_type, batch, COUNT(*) AS row_count,
+                   SUM(CASE WHEN source_url LIKE 'https://www.cqksy.cn/%' THEN 1 ELSE 0 END) AS cqksy_rows,
+                   SUM(CASE WHEN source_type = 'manual_verified' THEN 1 ELSE 0 END) AS manual_verified_rows
+            FROM admission_history
+            GROUP BY year, subject_type, batch
+            ORDER BY year DESC, subject_type
+            """
+        ).fetchall()
+        score_rank_rows = conn.execute(
+            """
+            SELECT year, subject_type, COUNT(*) AS row_count,
+                   MIN(batch_line_score) AS batch_line_score,
+                   MAX(above_batch_line_count) AS above_batch_line_count,
+                   MIN(source_url) AS source_url
+            FROM score_rank_table
+            GROUP BY year, subject_type
+            ORDER BY year DESC, subject_type
+            """
+        ).fetchall()
+        admission_type_rows = conn.execute(
+            """
+            SELECT year, admission_type, COUNT(*) AS row_count
+            FROM admission_history
+            GROUP BY year, admission_type
+            ORDER BY year DESC, admission_type
+            """
+        ).fetchall()
+        source_rows = conn.execute(
+            """
+            SELECT source_url, COUNT(*) AS row_count
+            FROM (
+                SELECT source_url FROM admission_history
+                UNION ALL
+                SELECT source_url FROM score_rank_table
+            )
+            GROUP BY source_url
+            ORDER BY row_count DESC, source_url
+            LIMIT 20
+            """
+        ).fetchall()
+        sample_rows = conn.execute(
+            """
+            SELECT year, subject_type, school_name, major_name, admission_type,
+                   min_score, min_rank, source_url, confidence
+            FROM admission_history
+            WHERE school_name LIKE '重庆邮电大学%'
+               OR school_name LIKE '重庆医科大学%'
+               OR school_name LIKE '重庆大学%'
+            ORDER BY year DESC, subject_type DESC, min_score DESC
+            LIMIT 24
+            """
+        ).fetchall()
+    return {
+        "official_entry_url": CHSI_VOLUNTEER_URL,
+        "database": str(DEFAULT_DB_PATH),
+        "admission_coverage": [{key: row[key] for key in row.keys()} for row in admission_rows],
+        "score_rank_coverage": [{key: row[key] for key in row.keys()} for row in score_rank_rows],
+        "admission_type_counts": [{key: row[key] for key in row.keys()} for row in admission_type_rows],
+        "source_urls": [{key: row[key] for key in row.keys()} for row in source_rows],
+        "sample_records": [{key: row[key] for key in row.keys()} for row in sample_rows],
+        "gap_count": len(gaps),
+        "gap_preview": gaps[:20],
+        "rank_note": "招生信息 PDF 不直接给出最低位次；min_rank 按同年同科类一分一段表中投档最低分对应累计人数折算。",
+        "future_year_note": "2026 录取历史数据尚未公布，本地库不应包含 2026 admission_history 或 score_rank_table；2026 仅用于招生章程、选科要求、招生计划等待公布事项的人工核验。",
+        "future_year_historical_data_status": "not_published",
+    }
+
+
+def html_table(headers: list[str], rows: list[list[Any]]) -> str:
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    body = "\n".join(
+        "<tr>" + "".join(f"<td>{escape(str(cell))}</td>" for cell in row) + "</tr>"
+        for row in rows
+    ) or f"<tr><td colspan=\"{len(headers)}\">暂无数据。</td></tr>"
+    return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+
+
 def render_local_form(markdown_report: str | None = None, download_url: str | None = None) -> str:
     report_html = ""
     if markdown_report is not None:
@@ -317,6 +402,7 @@ def render_local_form(markdown_report: str | None = None, download_url: str | No
     <p class="subtitle">本页面使用本地 Mock 数据和确定性 Python 规则生成冲稳保报告，不代表真实录取结果。</p>
     <nav class="links">
       <a href="/web/data-quality">查看数据质量</a>
+      <a href="/web/official-verify">官方核验页</a>
       <a href="/data-quality">数据质量 JSON</a>
     </nav>
     <form method="get" action="/web/report">
@@ -528,6 +614,193 @@ def local_data_gaps_markdown() -> Response:
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="data_gaps.md"'},
     )
+
+
+def render_official_verify_page(payload: dict[str, Any]) -> str:
+    admission_table = html_table(
+        ["年份", "科类", "批次", "记录数", "考试院链接记录", "人工核验记录"],
+        [
+            [
+                row["year"],
+                row["subject_type"],
+                row["batch"],
+                row["row_count"],
+                row["cqksy_rows"],
+                row["manual_verified_rows"],
+            ]
+            for row in payload["admission_coverage"]
+        ],
+    )
+    score_rank_table = html_table(
+        ["年份", "科类", "记录数", "本科线", "本科线上人数", "来源"],
+        [
+            [
+                row["year"],
+                row["subject_type"],
+                row["row_count"],
+                row["batch_line_score"],
+                row["above_batch_line_count"],
+                row["source_url"],
+            ]
+            for row in payload["score_rank_coverage"]
+        ],
+    )
+    admission_type_table = html_table(
+        ["年份", "招生类型", "记录数"],
+        [[row["year"], row["admission_type"], row["row_count"]] for row in payload["admission_type_counts"]],
+    )
+    source_table = html_table(
+        ["来源链接", "记录数"],
+        [[row["source_url"], row["row_count"]] for row in payload["source_urls"]],
+    )
+    sample_table = html_table(
+        ["年份", "科类", "学校", "专业", "招生类型", "最低分", "折算位次", "置信度"],
+        [
+            [
+                row["year"],
+                row["subject_type"],
+                row["school_name"],
+                row["major_name"],
+                row["admission_type"],
+                row["min_score"],
+                row["min_rank"],
+                row["confidence"],
+            ]
+            for row in payload["sample_records"]
+        ],
+    )
+    gap_table = html_table(
+        ["优先级", "目标表", "学校", "专业", "建议动作"],
+        [
+            [
+                row["priority"],
+                row["target_table"],
+                row["school_name"],
+                row["major_name"],
+                row["suggested_action"],
+            ]
+            for row in payload["gap_preview"]
+        ],
+    )
+    official_url = escape(payload["official_entry_url"], quote=True)
+    rank_note = escape(payload["rank_note"])
+    future_year_note = escape(payload["future_year_note"])
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>官方核验 - 重庆高考志愿填报 Agent</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172026;
+      background: #f7f8fa;
+    }}
+    main {{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 28px;
+    }}
+    h2 {{
+      margin: 28px 0 12px;
+      font-size: 20px;
+    }}
+    .subtitle, .meta {{
+      color: #5a6672;
+    }}
+    .notice {{
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: #fff8e6;
+      border: 1px solid #f0d48a;
+      border-radius: 8px;
+      line-height: 1.6;
+    }}
+    .links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }}
+    .links a {{
+      color: #1d4ed8;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    .links a:hover {{
+      text-decoration: underline;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #dfe4ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }}
+    th, td {{
+      padding: 10px 12px;
+      border-bottom: 1px solid #edf0f3;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }}
+    th {{
+      background: #f0f3f7;
+    }}
+    td {{
+      word-break: break-word;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>官方核验</h1>
+    <p class="subtitle">本页面用于把本地 SQLite 数据与官方入口、来源链接和补数缺口放在一起核对。</p>
+    <p class="meta">数据库：{escape(payload['database'])}</p>
+    <nav class="links">
+      <a href="/">返回推荐页</a>
+      <a href="/web/data-quality">数据质量</a>
+      <a href="/official-verify">核验 JSON</a>
+      <a href="{official_url}" target="_blank" rel="noopener noreferrer">打开阳光高考志愿填报入口</a>
+    </nav>
+    <div class="notice">
+      {rank_note}<br>
+      {future_year_note}<br>
+      阳光高考入口用于人工复核招生章程、选科要求、院校和专业信息；本地页面不抓取登录态或动态查询结果。
+    </div>
+    <h2>投档表覆盖</h2>
+    {admission_table}
+    <h2>一分一段表覆盖</h2>
+    {score_rank_table}
+    <h2>招生类型分布</h2>
+    {admission_type_table}
+    <h2>来源链接</h2>
+    {source_table}
+    <h2>抽样核验记录</h2>
+    {sample_table}
+    <h2>待补缺口预览</h2>
+    <p class="meta">当前缺口总数：{payload['gap_count']}</p>
+    {gap_table}
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/official-verify")
+def official_verify() -> dict[str, Any]:
+    return build_official_verify_payload()
+
+
+@app.get("/web/official-verify", response_class=HTMLResponse)
+def local_official_verify() -> HTMLResponse:
+    return HTMLResponse(render_official_verify_page(build_official_verify_payload()))
 
 
 def build_payload_from_web_query(
