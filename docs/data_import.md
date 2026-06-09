@@ -238,7 +238,8 @@ data/templates/school_major_profile_template.csv
 2. 2025 历史本科批录取历史
 3. 2025 物理/历史一分一段表
 4. 2024 数据
-5. 2021-2023 数据
+5. 2023 数据
+6. 2021-2022 数据
 
 每导入一个范围后运行：
 
@@ -248,48 +249,64 @@ python verify_api.py
 python validate_data.py --strict-warnings
 ```
 
-## 重庆 2025 真实数据导入
+## 重庆 2023-2025 真实数据导入
 
-已提供可复现脚本：
+已提供按年份复现的脚本：
 
 ```powershell
+python scripts/import_cq_2023_real_data.py
+python scripts/import_cq_2024_real_data.py
 python scripts/import_cq_2025_real_data.py
 ```
 
-该脚本会：
+这些脚本会：
 
-- 下载或复用本地 `data/raw/cq/2025/` 下的原始 PDF/HTML。
+- 下载或复用本地 `data/raw/cq/<year>/` 下的原始 PDF/HTML。
 - 抽取并生成：
-  - `data/cleaned/cq/2025/score_rank_table_2025_chongqing.csv`
-  - `data/cleaned/cq/2025/admission_history_2025_chongqing_benke.csv`
+  - `data/cleaned/cq/<year>/score_rank_table_<year>_chongqing.csv`
+  - `data/cleaned/cq/<year>/admission_history_<year>_chongqing_benke.csv`
 - 调用 `import_data.py` 的同一套校验逻辑写入 `gaokao_agent.db`。
-- 使用 `--replace-scope` 替换 2025 重庆物理/历史一分一段表，以及 2025 重庆物理/历史本科批投档表。
+- 使用 `--replace-scope` 替换对应年份重庆物理/历史一分一段表，以及对应年份重庆物理/历史本科批投档表。
 
 只抽取 CSV、不写数据库：
 
 ```powershell
+python scripts/import_cq_2023_real_data.py --extract-only
+python scripts/import_cq_2024_real_data.py --extract-only
 python scripts/import_cq_2025_real_data.py --extract-only
 ```
 
 只校验 CSV、不写数据库：
 
 ```powershell
+python scripts/import_cq_2023_real_data.py --dry-run
+python scripts/import_cq_2024_real_data.py --dry-run
 python scripts/import_cq_2025_real_data.py --dry-run
 ```
 
 导入后验证：
 
 ```powershell
+python verify_cq_2023_real_data.py
+python verify_cq_2024_real_data.py
 python verify_cq_2025_real_data.py
 python validate_data.py
 ```
 
-当前 2025 数据口径：
+当前真实数据口径：
 
-- 一分一段表：物理 502 行，历史 473 行。
-- 本科批投档表：物理 11464 行，历史 3786 行。
-- 物理本科线 425，本科线上人数 103219。
-- 历史本科线 438，本科线上人数 35253。
+- 2023 一分一段表：物理 494 行，历史 474 行。
+- 2023 本科批投档表：物理 10355 行，历史 3993 行。
+- 2023 物理本科线 406，本科线上人数 87297。
+- 2023 历史本科线 407，本科线上人数 34897。
+- 2024 一分一段表：物理 504 行，历史 479 行。
+- 2024 本科批投档表：物理 10602 行，历史 3744 行。
+- 2024 物理本科线 427，本科线上人数 97452。
+- 2024 历史本科线 428，本科线上人数 32498。
+- 2025 一分一段表：物理 502 行，历史 473 行。
+- 2025 本科批投档表：物理 11464 行，历史 3786 行。
+- 2025 物理本科线 425，本科线上人数 103219。
+- 2025 历史本科线 438，本科线上人数 35253。
 - 招生信息 PDF 不直接给出最低位次；`admission_history.min_rank` 按同年同科类一分一段表中投档最低分对应的累计人数折算。
 - 因存在上述折算，投档表行 `source_type` 使用 `manual_verified`，`confidence` 使用 `medium`。
 
