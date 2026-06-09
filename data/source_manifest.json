@@ -44,6 +44,34 @@
   ],
   "imported_snapshots": [
     {
+      "name": "2024 重庆本科批平行志愿投档表与一分一段表",
+      "year": 2024,
+      "province": "重庆",
+      "tables": [
+        "admission_history",
+        "score_rank_table"
+      ],
+      "cleaned_files": [
+        "data/cleaned/cq/2024/admission_history_2024_chongqing_benke.csv",
+        "data/cleaned/cq/2024/score_rank_table_2024_chongqing.csv"
+      ],
+      "raw_files_local_only": [
+        "data/raw/cq/2024/2024_cq_benke_physics.pdf",
+        "data/raw/cq/2024/2024_cq_benke_history.pdf",
+        "data/raw/cq/2024/2024_cq_score_rank_physics.html",
+        "data/raw/cq/2024/2024_cq_score_rank_history.html"
+      ],
+      "source_urls": [
+        "https://www.cqksy.cn/site/infopub/2024new/gk/lqxx/2024xxb_BKP-WLpx0721.pdf",
+        "https://www.cqksy.cn/site/infopub/2024new/gk/lqxx/2024xxb_BKP-LSpx0721.pdf",
+        "https://gaokao.eol.cn/chong_qing/dongtai/202406/t20240624_2619011.shtml",
+        "https://gaokao.eol.cn/chong_qing/dongtai/202406/t20240624_2618998.shtml"
+      ],
+      "import_command": "python scripts/import_cq_2024_real_data.py",
+      "verify_command": "python verify_cq_2024_real_data.py",
+      "rank_note": "招生信息 PDF 不直接给出最低位次；admission_history.min_rank 按同年同科类一分一段表中投档最低分对应累计人数折算。"
+    },
+    {
       "name": "2025 重庆本科批平行志愿投档表与一分一段表",
       "year": 2025,
       "province": "重庆",
