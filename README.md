@@ -158,6 +158,12 @@ http://127.0.0.1:8000/
 
 网页生成报告后会展示 Markdown 草稿，并提供 `下载 Markdown 报告` 链接；对应的本地下载接口是 `/web/report.md`。
 
+数据质量网页：
+
+```text
+http://127.0.0.1:8000/web/data-quality
+```
+
 ## 主要接口
 
 ### 健康检查
@@ -176,6 +182,13 @@ GET /data-quality
 
 ```http
 GET /data-quality?strict_warnings=true
+```
+
+本地网页下载补数清单：
+
+```http
+GET /web/data-gaps.csv
+GET /web/data-gaps.md
 ```
 
 ### 生成推荐

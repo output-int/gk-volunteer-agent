@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -19,7 +21,7 @@ from gaokao_recommender import (
     recommend,
 )
 from report_renderer import render_report
-from validate_data import summarize_counts, validate_database
+from validate_data import GAP_COLUMNS, collect_data_gaps, render_gap_markdown, summarize_counts, validate_database
 
 
 app = FastAPI(
@@ -124,19 +126,13 @@ def health() -> dict[str, Any]:
 
 @app.get("/data-quality", response_model=DataQualityResponse)
 def data_quality(strict_warnings: bool = Query(False)) -> dict[str, Any]:
+    return build_data_quality_payload(strict_warnings)
+
+
+def build_data_quality_payload(strict_warnings: bool = False) -> dict[str, Any]:
     ensure_db_exists()
     issues = validate_database(DEFAULT_DB_PATH)
     table_counts = summarize_counts(DEFAULT_DB_PATH)
-    issue_dicts = [
-        {
-            "severity": issue.severity,
-            "code": issue.code,
-            "message": issue.message,
-            "count": issue.count,
-            "sample": issue.sample or [],
-        }
-        for issue in issues
-    ]
     error_count = sum(1 for issue in issues if issue.severity == "ERROR")
     warning_count = sum(1 for issue in issues if issue.severity == "WARN")
     return {
@@ -145,8 +141,25 @@ def data_quality(strict_warnings: bool = Query(False)) -> dict[str, Any]:
         "table_counts": table_counts,
         "error_count": error_count,
         "warning_count": warning_count,
-        "issues": issue_dicts,
+        "issues": [
+            {
+                "severity": issue.severity,
+                "code": issue.code,
+                "message": issue.message,
+                "count": issue.count,
+                "sample": issue.sample or [],
+            }
+            for issue in issues
+        ],
     }
+
+
+def data_gaps_csv(gaps: list[dict[str, Any]]) -> str:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=GAP_COLUMNS)
+    writer.writeheader()
+    writer.writerows(gaps)
+    return buffer.getvalue()
 
 
 def render_local_form(markdown_report: str | None = None, download_url: str | None = None) -> str:
@@ -255,6 +268,20 @@ def render_local_form(markdown_report: str | None = None, download_url: str | No
       border: 1px solid #dfe4ea;
       border-radius: 8px;
     }}
+    .links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 0 0 20px;
+    }}
+    .links a {{
+      color: #1d4ed8;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    .links a:hover {{
+      text-decoration: underline;
+    }}
     pre {{
       white-space: pre-wrap;
       word-break: break-word;
@@ -273,6 +300,10 @@ def render_local_form(markdown_report: str | None = None, download_url: str | No
   <main>
     <h1>重庆高考志愿填报 Agent 本地原型</h1>
     <p class="subtitle">本页面使用本地 Mock 数据和确定性 Python 规则生成冲稳保报告，不代表真实录取结果。</p>
+    <nav class="links">
+      <a href="/web/data-quality">查看数据质量</a>
+      <a href="/data-quality">数据质量 JSON</a>
+    </nav>
     <form method="get" action="/web/report">
       <label>分数
         <input name="score" type="number" min="0" max="750" value="596" required>
@@ -314,6 +345,171 @@ def render_local_form(markdown_report: str | None = None, download_url: str | No
 @app.get("/", response_class=HTMLResponse)
 def local_home() -> HTMLResponse:
     return HTMLResponse(render_local_form())
+
+
+def render_data_quality_page(payload: dict[str, Any], gaps: list[dict[str, Any]]) -> str:
+    status_text = "通过" if payload["ok"] else "需处理"
+    table_rows = "\n".join(
+        f"<tr><td>{escape(table)}</td><td>{count}</td></tr>"
+        for table, count in payload["table_counts"].items()
+    )
+    issue_rows = "\n".join(
+        "<tr>"
+        f"<td>{escape(issue['severity'])}</td>"
+        f"<td>{escape(issue['code'])}</td>"
+        f"<td>{issue['count']}</td>"
+        f"<td>{escape(issue['message'])}</td>"
+        "</tr>"
+        for issue in payload["issues"]
+    ) or "<tr><td colspan=\"4\">暂无质量问题。</td></tr>"
+    gap_rows = "\n".join(
+        "<tr>"
+        f"<td>{escape(gap['priority'])}</td>"
+        f"<td>{escape(gap['target_table'])}</td>"
+        f"<td>{escape(gap['school_name'])}</td>"
+        f"<td>{escape(gap['major_name'])}</td>"
+        f"<td>{escape(gap['suggested_action'])}</td>"
+        "</tr>"
+        for gap in gaps[:20]
+    ) or "<tr><td colspan=\"5\">当前没有补数缺口。</td></tr>"
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据质量 - 重庆高考志愿填报 Agent</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172026;
+      background: #f7f8fa;
+    }}
+    main {{
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 28px;
+    }}
+    h2 {{
+      margin-top: 28px;
+      font-size: 20px;
+    }}
+    .subtitle, .meta {{
+      color: #5a6672;
+    }}
+    .summary {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }}
+    .metric {{
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #dfe4ea;
+      border-radius: 8px;
+    }}
+    .metric strong {{
+      display: block;
+      margin-top: 6px;
+      font-size: 24px;
+    }}
+    .links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }}
+    .links a {{
+      color: #1d4ed8;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #dfe4ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }}
+    th, td {{
+      padding: 10px 12px;
+      border-bottom: 1px solid #edf0f3;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }}
+    th {{
+      background: #f0f3f7;
+    }}
+    @media (max-width: 760px) {{
+      .summary {{
+        grid-template-columns: 1fr 1fr;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>数据质量</h1>
+    <p class="subtitle">本页面读取本地 SQLite 数据库，展示当前质量门禁和待补数据缺口。</p>
+    <p class="meta">数据库：{escape(payload['database'])}</p>
+    <div class="summary">
+      <div class="metric">状态<strong>{status_text}</strong></div>
+      <div class="metric">ERROR<strong>{payload['error_count']}</strong></div>
+      <div class="metric">WARN<strong>{payload['warning_count']}</strong></div>
+      <div class="metric">补数缺口<strong>{len(gaps)}</strong></div>
+    </div>
+    <nav class="links">
+      <a href="/">返回推荐页</a>
+      <a href="/data-quality">JSON</a>
+      <a href="/web/data-gaps.csv">下载 CSV</a>
+      <a href="/web/data-gaps.md">下载 Markdown</a>
+    </nav>
+    <h2>表记录数</h2>
+    <table><thead><tr><th>表</th><th>记录数</th></tr></thead><tbody>{table_rows}</tbody></table>
+    <h2>质量问题</h2>
+    <table><thead><tr><th>级别</th><th>代码</th><th>数量</th><th>说明</th></tr></thead><tbody>{issue_rows}</tbody></table>
+    <h2>补数清单预览</h2>
+    <table><thead><tr><th>优先级</th><th>目标表</th><th>学校</th><th>专业</th><th>建议动作</th></tr></thead><tbody>{gap_rows}</tbody></table>
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/web/data-quality", response_class=HTMLResponse)
+def local_data_quality() -> HTMLResponse:
+    payload = build_data_quality_payload()
+    gaps = collect_data_gaps(DEFAULT_DB_PATH)
+    return HTMLResponse(render_data_quality_page(payload, gaps))
+
+
+@app.get("/web/data-gaps.csv")
+def local_data_gaps_csv() -> Response:
+    ensure_db_exists()
+    gaps = collect_data_gaps(DEFAULT_DB_PATH)
+    return Response(
+        content="\ufeff" + data_gaps_csv(gaps),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="data_gaps.csv"'},
+    )
+
+
+@app.get("/web/data-gaps.md")
+def local_data_gaps_markdown() -> Response:
+    ensure_db_exists()
+    gaps = collect_data_gaps(DEFAULT_DB_PATH)
+    return Response(
+        content=render_gap_markdown(gaps),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="data_gaps.md"'},
+    )
 
 
 def build_payload_from_web_query(

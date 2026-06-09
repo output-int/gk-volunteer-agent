@@ -43,6 +43,27 @@ def main() -> None:
     assert_true(home.status_code == 200, home.text)
     assert_true("重庆高考志愿填报 Agent 本地原型" in home.text, "Local web home title missing.")
     assert_true('action="/web/report"' in home.text, "Local web form action missing.")
+    assert_true('href="/web/data-quality"' in home.text, "Local data-quality page link missing.")
+
+    data_quality_page = client.get("/web/data-quality")
+    assert_true(data_quality_page.status_code == 200, data_quality_page.text)
+    assert_true("数据质量" in data_quality_page.text, "Data-quality page title missing.")
+    assert_true("补数清单预览" in data_quality_page.text, "Data-quality page gap preview missing.")
+    assert_true("/web/data-gaps.csv" in data_quality_page.text, "Data gap CSV download link missing.")
+
+    data_gaps_csv = client.get("/web/data-gaps.csv")
+    assert_true(data_gaps_csv.status_code == 200, data_gaps_csv.text)
+    assert_true(data_gaps_csv.headers["content-type"].startswith("text/csv"), "Data gap CSV content type missing.")
+    assert_true(
+        'filename="data_gaps.csv"' in data_gaps_csv.headers["content-disposition"],
+        "Data gap CSV filename missing.",
+    )
+    assert_true("missing_2026_subject_requirement" in data_gaps_csv.text, "Data gap CSV should include requirement gaps.")
+
+    data_gaps_md = client.get("/web/data-gaps.md")
+    assert_true(data_gaps_md.status_code == 200, data_gaps_md.text)
+    assert_true(data_gaps_md.headers["content-type"].startswith("text/markdown"), "Data gap Markdown content type missing.")
+    assert_true("高考志愿填报 Agent 数据补全清单" in data_gaps_md.text, "Data gap Markdown title missing.")
 
     web_report = client.get(
         "/web/report",
