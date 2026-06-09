@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import sqlite3
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -325,7 +326,7 @@ def validate_subject_requirements(conn: sqlite3.Connection) -> list[DataIssue]:
 
 
 def validate_database(db_path: Path) -> list[DataIssue]:
-    with connect(db_path) as conn:
+    with closing(connect(db_path)) as conn:
         issues = validate_required_tables(conn)
         if any(issue.severity == "ERROR" and issue.code == "missing_required_tables" for issue in issues):
             return issues
@@ -336,7 +337,7 @@ def validate_database(db_path: Path) -> list[DataIssue]:
 
 
 def collect_data_gaps(db_path: Path) -> list[dict[str, Any]]:
-    with connect(db_path) as conn:
+    with closing(connect(db_path)) as conn:
         profile_rows = conn.execute(
             """
             SELECT DISTINCT a.school_name, a.major_name, MAX(a.year) AS source_year
@@ -445,7 +446,7 @@ def export_data_gaps(db_path: Path, output_dir: Path) -> dict[str, Any]:
 
 
 def summarize_counts(db_path: Path) -> dict[str, int]:
-    with connect(db_path) as conn:
+    with closing(connect(db_path)) as conn:
         return {
             table: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
             for table in REQUIRED_TABLES

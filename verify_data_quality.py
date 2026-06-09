@@ -5,18 +5,44 @@ from __future__ import annotations
 
 import csv
 import json
+import sqlite3
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+from import_data import import_csv
+from validate_data import collect_data_gaps
+
 
 ROOT = Path(__file__).resolve().parent
+INIT_SQL = ROOT / "db" / "init.sql"
+SUBJECT_REQUIREMENT_SAMPLE = ROOT / "data" / "samples" / "subject_requirement_sample.csv"
+SCHOOL_MAJOR_PROFILE_SAMPLE = ROOT / "data" / "samples" / "school_major_profile_sample.csv"
 
 
 def assert_true(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def initialize_temp_db(db_path: Path) -> None:
+    sql = INIT_SQL.read_text(encoding="utf-8")
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(sql)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def has_gap(gaps: list[dict[str, object]], gap_type: str, school_name: str, major_name: str) -> bool:
+    return any(
+        gap["gap_type"] == gap_type
+        and gap["school_name"] == school_name
+        and gap["major_name"] == major_name
+        for gap in gaps
+    )
 
 
 def main() -> None:
@@ -61,6 +87,31 @@ def main() -> None:
         markdown = markdown_path.read_text(encoding="utf-8")
         assert_true("高考志愿填报 Agent 数据补全清单" in markdown, "Data gap Markdown title missing.")
         assert_true("subject_requirement" in markdown, "Data gap Markdown should mention target tables.")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        db_path = Path(temp_dir) / "test_gaokao_agent.db"
+        initialize_temp_db(db_path)
+        before_gaps = collect_data_gaps(db_path)
+        assert_true(
+            has_gap(before_gaps, "missing_2026_subject_requirement", "西南大学", "数学类"),
+            "Initial gaps should include Southwest University Mathematics subject requirement.",
+        )
+        assert_true(
+            has_gap(before_gaps, "missing_school_major_profile", "西南大学", "数学类"),
+            "Initial gaps should include Southwest University Mathematics profile.",
+        )
+        import_csv(db_path, SUBJECT_REQUIREMENT_SAMPLE, "subject_requirement", replace_scope=True)
+        import_csv(db_path, SCHOOL_MAJOR_PROFILE_SAMPLE, "school_major_profile", replace_scope=True)
+        after_gaps = collect_data_gaps(db_path)
+        assert_true(
+            not has_gap(after_gaps, "missing_2026_subject_requirement", "西南大学", "数学类"),
+            "Imported subject requirement should close the matching data gap.",
+        )
+        assert_true(
+            not has_gap(after_gaps, "missing_school_major_profile", "西南大学", "数学类"),
+            "Imported school-major profile should close the matching data gap.",
+        )
+        assert_true(len(after_gaps) < len(before_gaps), "Data gap count should decrease after enrichment imports.")
 
     print("All data quality smoke tests passed.")
 

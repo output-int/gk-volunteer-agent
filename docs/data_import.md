@@ -133,6 +133,45 @@ school_name + major_name
 
 对应记录，再插入新数据。
 
+## 补数闭环
+
+当 `validate_data.py` 提示缺专业画像或缺 2026 选科要求时，推荐按以下顺序处理：
+
+1. 导出补数清单：
+
+```powershell
+python validate_data.py --export-gaps outputs/data_gaps
+```
+
+2. 参照模板补齐 CSV：
+
+```text
+data/templates/subject_requirement_template.csv
+data/templates/school_major_profile_template.csv
+```
+
+3. dry-run 校验：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv --dry-run
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --dry-run
+```
+
+4. 替换式导入：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv --replace-scope
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --replace-scope
+```
+
+5. 严格复查：
+
+```powershell
+python validate_data.py --strict-warnings
+```
+
+`verify_data_quality.py` 会在临时库中验证“导入补充 CSV 后，对应补数缺口减少”，用于防止补数流程失效。
+
 ## 字段要求
 
 CSV 字段必须和模板完全一致，包括顺序。
