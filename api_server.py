@@ -19,6 +19,7 @@ from gaokao_recommender import (
     recommend,
 )
 from report_renderer import render_report
+from validate_data import summarize_counts, validate_database
 
 
 app = FastAPI(
@@ -67,6 +68,15 @@ class ReportResponse(BaseModel):
     markdown_report: str
 
 
+class DataQualityResponse(BaseModel):
+    ok: bool
+    database: str
+    table_counts: dict[str, int]
+    error_count: int
+    warning_count: int
+    issues: list[dict[str, Any]]
+
+
 def build_profile(payload: RecommendRequest) -> StudentProfile:
     return StudentProfile(
         score=payload.score,
@@ -109,6 +119,33 @@ def health() -> dict[str, Any]:
         "database_exists": db_exists,
         "table_count": table_count,
         "data_scope": "重庆普通类本科批 Mock 数据",
+    }
+
+
+@app.get("/data-quality", response_model=DataQualityResponse)
+def data_quality(strict_warnings: bool = Query(False)) -> dict[str, Any]:
+    ensure_db_exists()
+    issues = validate_database(DEFAULT_DB_PATH)
+    table_counts = summarize_counts(DEFAULT_DB_PATH)
+    issue_dicts = [
+        {
+            "severity": issue.severity,
+            "code": issue.code,
+            "message": issue.message,
+            "count": issue.count,
+            "sample": issue.sample or [],
+        }
+        for issue in issues
+    ]
+    error_count = sum(1 for issue in issues if issue.severity == "ERROR")
+    warning_count = sum(1 for issue in issues if issue.severity == "WARN")
+    return {
+        "ok": error_count == 0 and (warning_count == 0 or not strict_warnings),
+        "database": str(DEFAULT_DB_PATH),
+        "table_counts": table_counts,
+        "error_count": error_count,
+        "warning_count": warning_count,
+        "issues": issue_dicts,
     }
 
 

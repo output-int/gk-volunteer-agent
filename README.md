@@ -158,6 +158,18 @@ http://127.0.0.1:8000/
 GET /health
 ```
 
+### 数据质量
+
+```http
+GET /data-quality
+```
+
+带 `strict_warnings=true` 时，缺专业画像、缺 2026 选科要求这类 WARN 也会让 `ok=false`：
+
+```http
+GET /data-quality?strict_warnings=true
+```
+
 ### 生成推荐
 
 ```http

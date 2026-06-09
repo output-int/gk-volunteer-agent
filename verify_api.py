@@ -21,6 +21,24 @@ def main() -> None:
     assert_true(health.status_code == 200, f"health failed: {health.text}")
     assert_true(health.json()["ok"] is True, f"database is not healthy: {health.json()}")
 
+    data_quality = client.get("/data-quality")
+    assert_true(data_quality.status_code == 200, data_quality.text)
+    data_quality_data = data_quality.json()
+    assert_true(data_quality_data["ok"] is True, f"data quality should pass with warnings: {data_quality_data}")
+    assert_true(data_quality_data["error_count"] == 0, "Mock data should have no data-quality errors.")
+    assert_true(data_quality_data["warning_count"] >= 1, "Mock data should expose known enrichment warnings.")
+    assert_true(
+        "admission_history" in data_quality_data["table_counts"],
+        "Data quality response should include table counts.",
+    )
+
+    strict_data_quality = client.get("/data-quality", params={"strict_warnings": True})
+    assert_true(strict_data_quality.status_code == 200, strict_data_quality.text)
+    assert_true(
+        strict_data_quality.json()["ok"] is False,
+        "Strict data quality should fail while Mock enrichment warnings remain.",
+    )
+
     home = client.get("/")
     assert_true(home.status_code == 200, home.text)
     assert_true("重庆高考志愿填报 Agent 本地原型" in home.text, "Local web home title missing.")
