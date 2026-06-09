@@ -10,6 +10,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent
+DEFAULT_OFFICIAL_SOURCE_URLS = [
+    "https://www.cqksy.cn/",
+    "https://www.cqzk.com.cn/",
+    "https://gaokao.chsi.com.cn/",
+]
 
 
 def text_or_dash(value: Any) -> str:
@@ -54,12 +59,46 @@ def render_candidate(item: dict[str, Any], index: int) -> str:
     )
 
 
+def build_official_checks(recommendation: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    checks: list[dict[str, Any]] = []
+    for item in recommendation.get("candidates", []):
+        findings = [
+            "核验 2026 招生章程中的院校专业组、专业代码、计划数、校区和学费。",
+            f"核验选科要求：{text_or_dash(item.get('subject_requirement_note'))}",
+            "核验近年最低分/最低位次是否来自官方投档表，并确认专业组是否发生调整。",
+        ]
+        if item.get("admission_type") != "普通类":
+            findings.append(f"核验 {item.get('admission_type')} 的报考资格、录取规则和退出/转专业限制。")
+        if item.get("admission_type") == "中外合作":
+            findings.append("重点核验中外合作办学学费、外方课程、培养模式和毕业证书说明。")
+        if item.get("risk_flags"):
+            findings.append(f"复核风险标签：{'、'.join(item.get('risk_flags', []))}")
+
+        source_urls = list(DEFAULT_OFFICIAL_SOURCE_URLS)
+        source_url = item.get("source_url")
+        if source_url and source_url not in source_urls:
+            source_urls.append(source_url)
+
+        checks.append(
+            {
+                "school_name": item.get("school_name"),
+                "major_name": item.get("major_name"),
+                "admission_type": item.get("admission_type"),
+                "status": "pending",
+                "findings": findings,
+                "source_urls": source_urls,
+                "manual_check_required": True,
+            }
+        )
+    return {"official_checks": checks}
+
+
 def render_report(recommendation: dict[str, Any], official_checks: dict[str, Any] | None = None) -> str:
     profile = recommendation.get("student_profile", {})
     warnings = recommendation.get("warnings", [])
     candidates = recommendation.get("candidates", [])
     excluded = recommendation.get("excluded", [])
-    official_checks = official_checks or {"official_checks": []}
+    official_checks = official_checks or build_official_checks(recommendation)
     checks = official_checks.get("official_checks", [])
 
     lines: list[str] = [

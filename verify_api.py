@@ -200,8 +200,10 @@ def main() -> None:
     )
     assert_true(report.status_code == 200, report.text)
     report_data = report.json()
+    assert_true(report_data["official_checks"]["official_checks"], "Report API should include official checks.")
     assert_true("# 重庆高考志愿填报辅助报告" in report_data["markdown_report"], "Report title missing.")
     assert_true("重庆邮电大学" in report_data["markdown_report"], "Report should include candidate details.")
+    assert_true("核验 2026 招生章程" in report_data["markdown_report"], "Report should include generated official checklist.")
     assert_true("风险声明" in report_data["markdown_report"], "Report should include risk statement.")
 
     trend = client.get(

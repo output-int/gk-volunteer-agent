@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from gaokao_recommender import DEFAULT_DB_PATH, StudentProfile, connect, parse_subjects, recommend
-from report_renderer import render_report
+from report_renderer import build_official_checks, render_report
 
 
 ROOT = Path(__file__).resolve().parent
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help=(
             "Save a reproducible run snapshot under this directory. "
-            "Each run includes input_profile.json, recommendation.json, report.md, and metadata.json."
+            "Each run includes input_profile.json, recommendation.json, official_checks.json, report.md, and metadata.json."
         ),
     )
     return parser.parse_args()
@@ -165,6 +165,7 @@ def save_run_snapshot(
     db_path: Path,
     args: argparse.Namespace,
     recommendation: dict[str, Any],
+    official_checks: dict[str, Any],
     markdown_report: str,
 ) -> Path:
     resolved_root = resolve_output_path(snapshot_root)
@@ -181,6 +182,7 @@ def save_run_snapshot(
 
     write_json(run_dir / "input_profile.json", profile)
     write_json(run_dir / "recommendation.json", recommendation)
+    write_json(run_dir / "official_checks.json", official_checks)
     (run_dir / "report.md").write_text(markdown_report, encoding="utf-8")
     write_json(
         run_dir / "metadata.json",
@@ -189,6 +191,7 @@ def save_run_snapshot(
             "db_path": str(db_path),
             "mode": "json" if args.json else "markdown",
             "output_path": str(resolve_output_path(args.output)) if args.output else None,
+            "snapshot_files": ["input_profile.json", "recommendation.json", "official_checks.json", "report.md", "metadata.json"],
             "mock_data_notice": "当前数据仅用于开发测试，不代表真实录取结果。",
         },
     )
@@ -201,13 +204,15 @@ def main() -> None:
     profile = profile_from_args(args) or interactive_profile()
     with connect(db_path) as conn:
         recommendation = recommend(conn, profile)
-    markdown_report = render_report(recommendation)
+    official_checks = build_official_checks(recommendation)
+    markdown_report = render_report(recommendation, official_checks)
     if args.save_run:
         snapshot_dir = save_run_snapshot(
             args.save_run,
             db_path=db_path,
             args=args,
             recommendation=recommendation,
+            official_checks=official_checks,
             markdown_report=markdown_report,
         )
         print(f"Saved run snapshot: {snapshot_dir}")

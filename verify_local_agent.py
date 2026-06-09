@@ -56,13 +56,16 @@ def main() -> None:
         snapshot_dir = snapshot_dirs[0]
         assert_true((snapshot_dir / "input_profile.json").exists(), "Snapshot input_profile.json missing.")
         assert_true((snapshot_dir / "recommendation.json").exists(), "Snapshot recommendation.json missing.")
+        assert_true((snapshot_dir / "official_checks.json").exists(), "Snapshot official_checks.json missing.")
         assert_true((snapshot_dir / "report.md").exists(), "Snapshot report.md missing.")
         assert_true((snapshot_dir / "metadata.json").exists(), "Snapshot metadata.json missing.")
         profile = json.loads((snapshot_dir / "input_profile.json").read_text(encoding="utf-8"))
         recommendation = json.loads((snapshot_dir / "recommendation.json").read_text(encoding="utf-8"))
+        official_checks = json.loads((snapshot_dir / "official_checks.json").read_text(encoding="utf-8"))
         metadata = json.loads((snapshot_dir / "metadata.json").read_text(encoding="utf-8"))
         assert_true(profile["rank"] == 20000, "Snapshot profile rank mismatch.")
         assert_true(recommendation["candidates"], "Snapshot recommendation candidates missing.")
+        assert_true(official_checks["official_checks"], "Snapshot official checks missing.")
         assert_true(metadata["mock_data_notice"], "Snapshot metadata notice missing.")
         assert_true("Saved run snapshot:" in result.stdout, "Snapshot path should be printed.")
 

@@ -20,7 +20,7 @@ from gaokao_recommender import (
     connect,
     recommend,
 )
-from report_renderer import render_report
+from report_renderer import build_official_checks, render_report
 from validate_data import GAP_COLUMNS, collect_data_gaps, render_gap_markdown, summarize_counts, validate_database
 
 
@@ -80,6 +80,7 @@ class RecommendResponse(BaseModel):
 
 class ReportResponse(BaseModel):
     recommendation: dict[str, Any]
+    official_checks: dict[str, Any]
     markdown_report: str
 
 
@@ -571,11 +572,20 @@ def web_report_download_url(payload: RecommendRequest) -> str:
     return f"/web/report.md?{query}"
 
 
-def generate_markdown_report(payload: RecommendRequest) -> str:
+def generate_report_bundle(payload: RecommendRequest) -> dict[str, Any]:
     ensure_db_exists()
     with connect(DEFAULT_DB_PATH) as conn:
         recommendation = recommend(conn, build_profile(payload))
-    return render_report(recommendation)
+    official_checks = build_official_checks(recommendation)
+    return {
+        "recommendation": recommendation,
+        "official_checks": official_checks,
+        "markdown_report": render_report(recommendation, official_checks),
+    }
+
+
+def generate_markdown_report(payload: RecommendRequest) -> str:
+    return generate_report_bundle(payload)["markdown_report"]
 
 
 @app.get("/web/report", response_class=HTMLResponse)
@@ -603,13 +613,7 @@ def recommend_endpoint(payload: RecommendRequest) -> dict[str, Any]:
 
 @app.post("/report", response_model=ReportResponse)
 def report_endpoint(payload: RecommendRequest) -> dict[str, Any]:
-    ensure_db_exists()
-    with connect(DEFAULT_DB_PATH) as conn:
-        recommendation = recommend(conn, build_profile(payload))
-    return {
-        "recommendation": recommendation,
-        "markdown_report": render_report(recommendation),
-    }
+    return generate_report_bundle(payload)
 
 
 @app.get("/admissions/trend")

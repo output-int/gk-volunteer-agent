@@ -123,7 +123,7 @@ python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-su
 python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 计算机,电子信息 --save-run outputs/runs
 ```
 
-快照目录包含 `input_profile.json`、`recommendation.json`、`report.md` 和 `metadata.json`，适合后续调参、人工复核和案例回放。
+快照目录包含 `input_profile.json`、`recommendation.json`、`official_checks.json`、`report.md` 和 `metadata.json`，适合后续调参、人工复核和案例回放。
 
 非交互模式也可显式接受特殊招生类型：
 
@@ -263,11 +263,12 @@ Content-Type: application/json
 ```json
 {
   "recommendation": {},
+  "official_checks": {},
   "markdown_report": "# 重庆高考志愿填报辅助报告\n..."
 }
 ```
 
-如果只需要本地确定性报告草稿，直接调用 `/report` 并读取 `markdown_report`。
+如果只需要本地确定性报告草稿，直接调用 `/report` 并读取 `markdown_report`；如需人工核验任务列表，读取 `official_checks`。
 
 ### 查询院校专业走势
 
