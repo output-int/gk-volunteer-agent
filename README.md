@@ -91,6 +91,12 @@ python gaokao_recommender.py --score 596 --rank 20000 --subject-type 物理 --se
 python gaokao_recommender.py --score 590 --rank 22000 --subject-type 物理 --second-subjects 生物,地理 --major-interest 计算机
 ```
 
+显式接受特殊招生类型，例如民族班：
+
+```powershell
+python gaokao_recommender.py --score 598 --rank 25000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 建筑 --accepted-admission-types 民族班
+```
+
 ## 本地终端 Agent
 
 交互式运行：
@@ -118,6 +124,12 @@ python local_agent.py --score 596 --rank 20000 --subject-type 物理 --second-su
 ```
 
 快照目录包含 `input_profile.json`、`recommendation.json`、`report.md` 和 `metadata.json`，适合后续调参、人工复核和案例回放。
+
+非交互模式也可显式接受特殊招生类型：
+
+```powershell
+python local_agent.py --score 598 --rank 25000 --subject-type 物理 --second-subjects 化学,生物 --major-interest 建筑 --accepted-admission-types 民族班
+```
 
 ## 本地批量评测
 
@@ -215,7 +227,8 @@ Content-Type: application/json
   "second_subjects": ["化学", "生物"],
   "major_interest": "计算机",
   "risk_level": "均衡",
-  "accept_sino_foreign": false
+  "accept_sino_foreign": false,
+  "accepted_admission_types": []
 }
 ```
 
@@ -272,6 +285,12 @@ GET /subject-requirements?school_name=重庆医科大学&major_name=临床医学
 
 ```http
 GET /search/admissions?subject_type=物理&rank=20000&major_keyword=计算机&accept_sino_foreign=false
+```
+
+如需搜索已显式接受的特殊类型：
+
+```http
+GET /search/admissions?subject_type=物理&rank=25000&major_keyword=建筑&accepted_admission_types=民族班
 ```
 
 ## 本地 API 快速测试

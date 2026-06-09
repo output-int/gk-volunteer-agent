@@ -66,6 +66,34 @@ def main() -> None:
         assert_true(metadata["mock_data_notice"], "Snapshot metadata notice missing.")
         assert_true("Saved run snapshot:" in result.stdout, "Snapshot path should be printed.")
 
+        special_report_path = Path(temp_dir) / "agent_special_report.md"
+        subprocess.run(
+            [
+                sys.executable,
+                "local_agent.py",
+                "--score",
+                "598",
+                "--rank",
+                "25000",
+                "--subject-type",
+                "物理",
+                "--second-subjects",
+                "化学,生物",
+                "--major-interest",
+                "建筑",
+                "--accepted-admission-types",
+                "民族班",
+                "--output",
+                str(special_report_path),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        special_report = special_report_path.read_text(encoding="utf-8")
+        assert_true("民族班" in special_report, "Accepted special admission type should appear in report.")
+
     print("All local Agent smoke tests passed.")
 
 

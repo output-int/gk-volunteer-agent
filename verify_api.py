@@ -149,6 +149,43 @@ def main() -> None:
         "Recommendation candidates should expose equivalent-rank method.",
     )
 
+    minority_default = client.post(
+        "/recommend",
+        json={
+            "score": 598,
+            "rank": 25000,
+            "subject_type": "物理",
+            "second_subjects": ["化学", "生物"],
+            "major_interest": "建筑",
+            "risk_level": "均衡",
+            "accept_sino_foreign": False,
+        },
+    )
+    assert_true(minority_default.status_code == 200, minority_default.text)
+    assert_true(
+        all(item["admission_type"] != "民族班" for item in minority_default.json()["candidates"]),
+        "Minority class should be filtered by default through API.",
+    )
+
+    minority_accepted = client.post(
+        "/recommend",
+        json={
+            "score": 598,
+            "rank": 25000,
+            "subject_type": "物理",
+            "second_subjects": ["化学", "生物"],
+            "major_interest": "建筑",
+            "risk_level": "均衡",
+            "accept_sino_foreign": False,
+            "accepted_admission_types": ["民族班"],
+        },
+    )
+    assert_true(minority_accepted.status_code == 200, minority_accepted.text)
+    assert_true(
+        any(item["admission_type"] == "民族班" for item in minority_accepted.json()["candidates"]),
+        "Minority class should be allowed when explicitly accepted through API.",
+    )
+
     report = client.post(
         "/report",
         json={
@@ -204,6 +241,21 @@ def main() -> None:
     assert_true(
         all(item["admission_type"] != "中外合作" for item in search.json()["items"]),
         "Sino-foreign records should be filtered from search when not accepted.",
+    )
+
+    search_minority = client.get(
+        "/search/admissions",
+        params={
+            "subject_type": "物理",
+            "rank": 25000,
+            "major_keyword": "建筑",
+            "accepted_admission_types": "民族班",
+        },
+    )
+    assert_true(search_minority.status_code == 200, search_minority.text)
+    assert_true(
+        any(item["admission_type"] == "民族班" for item in search_minority.json()["items"]),
+        "Search should include accepted minority-class records.",
     )
 
     print("All API smoke tests passed.")

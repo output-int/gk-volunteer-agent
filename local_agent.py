@@ -68,6 +68,7 @@ def interactive_profile() -> StudentProfile:
     major_interest = ask("专业兴趣（可多个，逗号分隔）", "计算机,电子信息")
     risk_level = ask_choice("风险偏好（保守/均衡/激进）", {"保守", "均衡", "激进"}, "均衡")
     accept_sino_foreign = ask_bool("是否接受中外合作/高学费项目？y/n", False)
+    accepted_admission_types = parse_subjects(ask("其他接受的特殊招生类型（可空，逗号分隔）", ""))
     return StudentProfile(
         score=score or 0,
         rank=rank,
@@ -76,6 +77,7 @@ def interactive_profile() -> StudentProfile:
         major_interest=major_interest,
         risk_level=risk_level,
         accept_sino_foreign=accept_sino_foreign,
+        accepted_admission_types=accepted_admission_types,
     )
 
 
@@ -89,6 +91,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--major-interest", default="")
     parser.add_argument("--risk-level", choices=["保守", "均衡", "激进"], default="均衡")
     parser.add_argument("--accept-sino-foreign", action="store_true")
+    parser.add_argument(
+        "--accepted-admission-types",
+        default="",
+        help="Comma-separated special admission types to allow, e.g. 民族班,预科,专项.",
+    )
     parser.add_argument("--json", action="store_true", help="Print recommendation JSON instead of Markdown.")
     parser.add_argument("--output", type=Path, help="Write output to a file instead of stdout.")
     parser.add_argument(
@@ -125,6 +132,7 @@ def profile_from_args(args: argparse.Namespace) -> StudentProfile | None:
         major_interest=args.major_interest,
         risk_level=args.risk_level,
         accept_sino_foreign=args.accept_sino_foreign,
+        accepted_admission_types=parse_subjects(args.accepted_admission_types),
     )
 
 

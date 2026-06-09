@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean, pstdev
 from typing import Any
@@ -33,6 +33,7 @@ class StudentProfile:
     major_interest: str
     risk_level: str
     accept_sino_foreign: bool
+    accepted_admission_types: set[str] = field(default_factory=set)
     batch: str = "本科批"
     province: str = "重庆"
 
@@ -133,11 +134,17 @@ def requirement_status(
 
 
 def admission_type_allowed(profile: StudentProfile, admission_type: str) -> tuple[bool, str]:
-    if admission_type == "中外合作" and not profile.accept_sino_foreign:
+    if admission_type == "普通类":
+        return True, "招生类型符合当前偏好。"
+    if admission_type == "中外合作" and (profile.accept_sino_foreign or admission_type in profile.accepted_admission_types):
+        return True, "用户已接受中外合作/高学费项目。"
+    if admission_type in profile.accepted_admission_types:
+        return True, f"用户已显式接受 {admission_type}，仍需核验资格。"
+    if admission_type == "中外合作":
         return False, "用户未接受中外合作/高学费项目。"
     if admission_type in {"民族班", "预科", "专项"}:
-        return False, f"{admission_type} 有资格限制，首版普通类推荐池默认过滤。"
-    return True, "招生类型符合当前偏好。"
+        return False, f"{admission_type} 有资格限制，未显式接受时默认过滤。"
+    return False, f"未知招生类型 {admission_type}，默认过滤。"
 
 
 def tier_from_rank_gap(rank: int, comparison_rank: int, risk_level: str) -> tuple[str | None, int]:
@@ -477,6 +484,7 @@ def recommend(conn: sqlite3.Connection, profile: StudentProfile) -> dict[str, An
             "major_interest": profile.major_interest,
             "risk_level": profile.risk_level,
             "accept_sino_foreign": profile.accept_sino_foreign,
+            "accepted_admission_types": sorted(profile.accepted_admission_types),
             "rank_reference_year": reference_year,
             "rank_reference_above_batch_line_count": reference_above_count,
         },
@@ -496,6 +504,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--major-interest", default="", help="Major keyword, e.g. 计算机")
     parser.add_argument("--risk-level", choices=["保守", "均衡", "激进"], default="均衡")
     parser.add_argument("--accept-sino-foreign", action="store_true")
+    parser.add_argument(
+        "--accepted-admission-types",
+        default="",
+        help="Comma-separated special admission types to allow, e.g. 民族班,预科,专项.",
+    )
     return parser.parse_args()
 
 
@@ -510,6 +523,7 @@ def main() -> None:
         major_interest=args.major_interest,
         risk_level=args.risk_level,
         accept_sino_foreign=args.accept_sino_foreign,
+        accepted_admission_types=parse_subjects(args.accepted_admission_types),
     )
     with connect(db_path) as conn:
         result = recommend(conn, profile)

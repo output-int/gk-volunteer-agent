@@ -170,6 +170,51 @@ def main() -> None:
             "Sino-foreign candidate should be allowed when explicitly accepted.",
         )
 
+        default_blocks_minority = run_case(
+            conn,
+            StudentProfile(
+                score=598,
+                rank=25000,
+                subject_type="物理",
+                second_subjects=parse_subjects("化学,生物"),
+                major_interest="建筑",
+                risk_level="均衡",
+                accept_sino_foreign=False,
+            ),
+        )
+        assert_true(
+            all(item["admission_type"] != "民族班" for item in default_blocks_minority["candidates"]),
+            "Minority class should be filtered by default.",
+        )
+        assert_any(
+            default_blocks_minority["excluded"],
+            lambda item: "民族班" in item["reason"],
+            "Default minority-class exclusion reason should be visible.",
+        )
+
+        accepts_minority = run_case(
+            conn,
+            StudentProfile(
+                score=598,
+                rank=25000,
+                subject_type="物理",
+                second_subjects=parse_subjects("化学,生物"),
+                major_interest="建筑",
+                risk_level="均衡",
+                accept_sino_foreign=False,
+                accepted_admission_types={"民族班"},
+            ),
+        )
+        assert_any(
+            accepts_minority["candidates"],
+            lambda item: item["admission_type"] == "民族班",
+            "Minority class should be allowed only when explicitly accepted.",
+        )
+        assert_true(
+            accepts_minority["student_profile"]["accepted_admission_types"] == ["民族班"],
+            "Accepted admission types should be exposed in the student profile.",
+        )
+
     print("All recommender smoke tests passed.")
 
 

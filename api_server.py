@@ -42,6 +42,10 @@ class RecommendRequest(BaseModel):
     major_interest: str = Field("", description="Major keyword, e.g. 计算机.")
     risk_level: str = Field("均衡", description="保守 / 均衡 / 激进.")
     accept_sino_foreign: bool = Field(False, description="Whether Sino-foreign programs are accepted.")
+    accepted_admission_types: list[str] = Field(
+        default_factory=list,
+        description="Special admission types explicitly accepted, e.g. 民族班 / 预科 / 专项.",
+    )
 
     @field_validator("subject_type")
     @classmethod
@@ -55,6 +59,15 @@ class RecommendRequest(BaseModel):
     def validate_risk_level(cls, value: str) -> str:
         if value not in {"保守", "均衡", "激进"}:
             raise ValueError("risk_level must be 保守, 均衡, or 激进")
+        return value
+
+    @field_validator("accepted_admission_types")
+    @classmethod
+    def validate_accepted_admission_types(cls, value: list[str]) -> list[str]:
+        allowed = {"中外合作", "民族班", "预科", "专项"}
+        invalid = [item for item in value if item not in allowed]
+        if invalid:
+            raise ValueError(f"accepted_admission_types contains invalid values: {invalid}")
         return value
 
 
@@ -88,6 +101,7 @@ def build_profile(payload: RecommendRequest) -> StudentProfile:
         major_interest=payload.major_interest,
         risk_level=payload.risk_level,
         accept_sino_foreign=payload.accept_sino_foreign,
+        accepted_admission_types=set(payload.accepted_admission_types),
     )
 
 
@@ -334,6 +348,9 @@ def render_local_form(markdown_report: str | None = None, download_url: str | No
         <input name="accept_sino_foreign" type="checkbox" value="true">
         接受中外合作/高学费项目
       </label>
+      <label class="full">其他可接受招生类型（用逗号分隔）
+        <input name="accepted_admission_types" value="">
+      </label>
       <button class="full" type="submit">生成报告</button>
     </form>
     {report_html}
@@ -520,6 +537,7 @@ def build_payload_from_web_query(
     major_interest: str = Query(""),
     risk_level: str = Query("均衡", pattern="^(保守|均衡|激进)$"),
     accept_sino_foreign: bool = Query(False),
+    accepted_admission_types: str = Query(""),
 ) -> RecommendRequest:
     return RecommendRequest(
         score=score,
@@ -529,6 +547,11 @@ def build_payload_from_web_query(
         major_interest=major_interest,
         risk_level=risk_level,
         accept_sino_foreign=accept_sino_foreign,
+        accepted_admission_types=[
+            part.strip()
+            for part in accepted_admission_types.replace("，", ",").split(",")
+            if part.strip()
+        ],
     )
 
 
@@ -542,6 +565,7 @@ def web_report_download_url(payload: RecommendRequest) -> str:
             "major_interest": payload.major_interest,
             "risk_level": payload.risk_level,
             "accept_sino_foreign": str(payload.accept_sino_foreign).lower(),
+            "accepted_admission_types": ",".join(payload.accepted_admission_types),
         }
     )
     return f"/web/report.md?{query}"
@@ -655,19 +679,29 @@ def search_admissions(
     rank: int | None = Query(None, gt=0),
     major_keyword: str = Query(""),
     accept_sino_foreign: bool = Query(False),
+    accepted_admission_types: str = Query(""),
     limit: int = Query(20, ge=1, le=100),
 ) -> dict[str, Any]:
     ensure_db_exists()
     keyword = f"%{major_keyword.strip()}%" if major_keyword.strip() else "%"
     params: list[Any] = [subject_type, keyword, keyword, keyword]
     rank_filter = ""
+    rank_params: list[Any] = []
     if rank is not None:
         rank_filter = "AND min_rank BETWEEN ? AND ?"
-        params.extend([int(rank * 0.7), int(rank * 1.6)])
+        rank_params.extend([int(rank * 0.7), int(rank * 1.6)])
 
-    sino_filter = ""
-    if not accept_sino_foreign:
-        sino_filter = "AND admission_type != '中外合作'"
+    accepted_types = {
+        part.strip()
+        for part in accepted_admission_types.replace("，", ",").split(",")
+        if part.strip()
+    }
+    if accept_sino_foreign:
+        accepted_types.add("中外合作")
+    allowed_types = {"普通类"} | accepted_types
+    type_placeholders = ", ".join("?" for _ in allowed_types)
+    params.extend(sorted(allowed_types))
+    params.extend(rank_params)
 
     params.append(limit)
     sql = f"""
@@ -678,8 +712,8 @@ def search_admissions(
           AND subject_type = ?
           AND batch = '本科批'
           AND (major_name LIKE ? OR major_category LIKE ? OR discipline_category LIKE ?)
+          AND admission_type IN ({type_placeholders})
           {rank_filter}
-          {sino_filter}
         ORDER BY min_rank
         LIMIT ?
     """

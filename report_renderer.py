@@ -74,6 +74,7 @@ def render_report(recommendation: dict[str, Any], official_checks: dict[str, Any
         f"- 专业兴趣：{text_or_dash(profile.get('major_interest'))}",
         f"- 风险偏好：{text_or_dash(profile.get('risk_level'))}",
         f"- 接受中外合作：{'是' if profile.get('accept_sino_foreign') else '否'}",
+        f"- 其他接受招生类型：{'、'.join(profile.get('accepted_admission_types', [])) or '-'}",
         f"- 位次参考年份：{text_or_dash(profile.get('rank_reference_year'))}",
         "",
         "## 核心结论",
