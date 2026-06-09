@@ -48,6 +48,20 @@ gaokao_agent.db
 python init_db.py --no-overwrite
 ```
 
+## 数据质量校验
+
+检查 SQLite 中的必需表、重复自然键、一分一段表一致性、特殊招生风险备注和 2026 选科要求：
+
+```powershell
+python validate_data.py
+```
+
+输出 JSON，便于后续接入本地前端或自动化检查：
+
+```powershell
+python validate_data.py --json
+```
+
 ## 本地命令行推荐
 
 物理类，已选化学，位次 20000 附近，同时查询计算机和电子信息方向：
