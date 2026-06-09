@@ -77,6 +77,15 @@ python import_data.py --table subject_requirement --csv data/samples/subject_req
 python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --replace-scope
 ```
 
+导入已清洗的重庆 2025 真实公开数据：
+
+```powershell
+python scripts/import_cq_2025_real_data.py
+python verify_cq_2025_real_data.py
+```
+
+该脚本会生成 `data/cleaned/cq/2025/` 下的结构化 CSV，并写入 2025 重庆物理/历史本科批投档表与一分一段表。招生信息 PDF 不直接给最低位次，`min_rank` 按同年同科类一分一段表中投档最低分对应累计人数折算。
+
 ## 本地命令行推荐
 
 物理类，已选化学，位次 20000 附近，同时查询计算机和电子信息方向：

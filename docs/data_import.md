@@ -247,3 +247,50 @@ python verify_recommender.py
 python verify_api.py
 python validate_data.py --strict-warnings
 ```
+
+## 重庆 2025 真实数据导入
+
+已提供可复现脚本：
+
+```powershell
+python scripts/import_cq_2025_real_data.py
+```
+
+该脚本会：
+
+- 下载或复用本地 `data/raw/cq/2025/` 下的原始 PDF/HTML。
+- 抽取并生成：
+  - `data/cleaned/cq/2025/score_rank_table_2025_chongqing.csv`
+  - `data/cleaned/cq/2025/admission_history_2025_chongqing_benke.csv`
+- 调用 `import_data.py` 的同一套校验逻辑写入 `gaokao_agent.db`。
+- 使用 `--replace-scope` 替换 2025 重庆物理/历史一分一段表，以及 2025 重庆物理/历史本科批投档表。
+
+只抽取 CSV、不写数据库：
+
+```powershell
+python scripts/import_cq_2025_real_data.py --extract-only
+```
+
+只校验 CSV、不写数据库：
+
+```powershell
+python scripts/import_cq_2025_real_data.py --dry-run
+```
+
+导入后验证：
+
+```powershell
+python verify_cq_2025_real_data.py
+python validate_data.py
+```
+
+当前 2025 数据口径：
+
+- 一分一段表：物理 502 行，历史 473 行。
+- 本科批投档表：物理 11464 行，历史 3786 行。
+- 物理本科线 425，本科线上人数 103219。
+- 历史本科线 438，本科线上人数 35253。
+- 招生信息 PDF 不直接给出最低位次；`admission_history.min_rank` 按同年同科类一分一段表中投档最低分对应的累计人数折算。
+- 因存在上述折算，投档表行 `source_type` 使用 `manual_verified`，`confidence` 使用 `medium`。
+
+`data/raw/` 是原始下载文件目录，已加入 `.gitignore`。清洗 CSV 保留在 `data/cleaned/`，便于复查和重复导入。
