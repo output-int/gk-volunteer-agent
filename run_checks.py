@@ -48,6 +48,7 @@ def main() -> None:
     python = sys.executable
     run([python, "init_db.py"])
     run([python, "validate_data.py"])
+    run([python, "verify_data_quality.py"])
     run([python, "verify_importer.py"])
     run([python, "verify_recommender.py"])
     run([python, "verify_api.py"])

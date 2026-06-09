@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sqlite3
 from dataclasses import asdict, dataclass
@@ -19,6 +20,16 @@ REQUIRED_TABLES = [
     "subject_requirement",
     "school_major_profile",
     "recommendation_case",
+]
+
+GAP_COLUMNS = [
+    "gap_type",
+    "priority",
+    "target_table",
+    "school_name",
+    "major_name",
+    "source_year",
+    "suggested_action",
 ]
 
 
@@ -324,6 +335,115 @@ def validate_database(db_path: Path) -> list[DataIssue]:
         return issues
 
 
+def collect_data_gaps(db_path: Path) -> list[dict[str, Any]]:
+    with connect(db_path) as conn:
+        profile_rows = conn.execute(
+            """
+            SELECT DISTINCT a.school_name, a.major_name, MAX(a.year) AS source_year
+            FROM admission_history a
+            LEFT JOIN school_major_profile p
+              ON p.school_name = a.school_name
+             AND p.major_name = a.major_name
+            WHERE a.year = 2025
+              AND p.id IS NULL
+            GROUP BY a.school_name, a.major_name
+            ORDER BY a.school_name, a.major_name
+            """
+        ).fetchall()
+        requirement_rows = conn.execute(
+            """
+            SELECT DISTINCT a.school_name, a.major_name, MAX(a.year) AS source_year
+            FROM admission_history a
+            LEFT JOIN subject_requirement r
+              ON r.school_name = a.school_name
+             AND r.major_name = a.major_name
+             AND r.requirement_year = 2026
+            WHERE a.year = 2025
+              AND r.id IS NULL
+            GROUP BY a.school_name, a.major_name
+            ORDER BY a.school_name, a.major_name
+            """
+        ).fetchall()
+
+    gaps: list[dict[str, Any]] = []
+    for row in profile_rows:
+        gaps.append(
+            {
+                "gap_type": "missing_school_major_profile",
+                "priority": "medium",
+                "target_table": "school_major_profile",
+                "school_name": row["school_name"],
+                "major_name": row["major_name"],
+                "source_year": row["source_year"],
+                "suggested_action": "补充就业方向、考研方向、专业风险备注和来源链接。",
+            }
+        )
+    for row in requirement_rows:
+        gaps.append(
+            {
+                "gap_type": "missing_2026_subject_requirement",
+                "priority": "high",
+                "target_table": "subject_requirement",
+                "school_name": row["school_name"],
+                "major_name": row["major_name"],
+                "source_year": row["source_year"],
+                "suggested_action": "核验并补充 2026 选科要求、适用年份、来源链接和有效期。",
+            }
+        )
+    return sorted(gaps, key=lambda item: (item["priority"] != "high", item["school_name"], item["major_name"]))
+
+
+def render_gap_markdown(gaps: list[dict[str, Any]]) -> str:
+    lines = [
+        "# 高考志愿填报 Agent 数据补全清单",
+        "",
+        "该清单由本地 SQLite 数据质量校验生成，用于指导后续人工补录和官方来源核验。",
+        "",
+        "| 优先级 | 缺口类型 | 目标表 | 学校 | 专业 | 建议动作 |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    if not gaps:
+        lines.append("| - | - | - | - | - | 当前没有可导出的补数缺口。 |")
+    else:
+        for gap in gaps:
+            lines.append(
+                "| {priority} | {gap_type} | {target_table} | {school_name} | {major_name} | {suggested_action} |".format(
+                    **gap
+                )
+            )
+    lines.extend(
+        [
+            "",
+            "## 使用建议",
+            "",
+            "1. 优先补 `subject_requirement` 中的 2026 选科要求，避免硬规则误判。",
+            "2. 再补 `school_major_profile` 中的专业画像，用于解释报告和风险提示。",
+            "3. 每次补录后运行 `python validate_data.py --strict-warnings` 复查。",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def export_data_gaps(db_path: Path, output_dir: Path) -> dict[str, Any]:
+    resolved_output = resolve_path(output_dir)
+    resolved_output.mkdir(parents=True, exist_ok=True)
+    gaps = collect_data_gaps(db_path)
+    csv_path = resolved_output / "data_gaps.csv"
+    markdown_path = resolved_output / "data_gaps.md"
+
+    with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=GAP_COLUMNS)
+        writer.writeheader()
+        writer.writerows(gaps)
+    markdown_path.write_text(render_gap_markdown(gaps), encoding="utf-8")
+
+    return {
+        "gap_count": len(gaps),
+        "csv_path": str(csv_path),
+        "markdown_path": str(markdown_path),
+    }
+
+
 def summarize_counts(db_path: Path) -> dict[str, int]:
     with connect(db_path) as conn:
         return {
@@ -337,6 +457,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH)
     parser.add_argument("--json", action="store_true", help="Print machine-readable validation result.")
     parser.add_argument("--strict-warnings", action="store_true", help="Exit non-zero when warnings are present.")
+    parser.add_argument("--export-gaps", type=Path, help="Write actionable data gap CSV/Markdown files.")
     return parser.parse_args()
 
 
@@ -345,6 +466,7 @@ def main() -> None:
     db_path = resolve_path(args.db)
     issues = validate_database(db_path)
     counts = summarize_counts(db_path)
+    gap_export = export_data_gaps(db_path, args.export_gaps) if args.export_gaps else None
     error_count = sum(1 for issue in issues if issue.severity == "ERROR")
     warning_count = sum(1 for issue in issues if issue.severity == "WARN")
 
@@ -358,6 +480,7 @@ def main() -> None:
                     "error_count": error_count,
                     "warning_count": warning_count,
                     "issues": [asdict(issue) for issue in issues],
+                    "gap_export": gap_export,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -376,6 +499,11 @@ def main() -> None:
                 print(f"- [{issue.severity}] {issue.code}: {issue.message} count={issue.count}")
                 for sample in issue.sample or []:
                     print(f"  sample: {sample}")
+        if gap_export is not None:
+            print("\nData gap export")
+            print(f"- gap_count: {gap_export['gap_count']}")
+            print(f"- csv_path: {gap_export['csv_path']}")
+            print(f"- markdown_path: {gap_export['markdown_path']}")
 
     if error_count or (args.strict_warnings and warning_count):
         raise SystemExit(1)

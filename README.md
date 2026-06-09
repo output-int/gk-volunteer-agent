@@ -62,6 +62,14 @@ python validate_data.py
 python validate_data.py --json
 ```
 
+导出可操作的补数清单：
+
+```powershell
+python validate_data.py --export-gaps outputs/data_gaps
+```
+
+该命令会生成 `data_gaps.csv` 和 `data_gaps.md`，用于跟踪缺专业画像、缺 2026 选科要求等后续补录任务。
+
 ## 本地命令行推荐
 
 物理类，已选化学，位次 20000 附近，同时查询计算机和电子信息方向：
