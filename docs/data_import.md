@@ -12,8 +12,12 @@
 ```text
 data/templates/admission_history_template.csv
 data/templates/score_rank_table_template.csv
+data/templates/subject_requirement_template.csv
+data/templates/school_major_profile_template.csv
 data/samples/admission_history_sample.csv
 data/samples/score_rank_table_sample.csv
+data/samples/subject_requirement_sample.csv
+data/samples/school_major_profile_sample.csv
 data/source_manifest.json
 ```
 
@@ -73,6 +77,62 @@ year + province + subject_type
 
 对应记录，再插入新数据。
 
+## 导入 2026 选科要求
+
+先 dry-run 校验：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv --dry-run
+```
+
+写入数据库：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv
+```
+
+替换同一学校、专业、要求年份的已有数据：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv --replace-scope
+```
+
+`--replace-scope` 会删除 CSV 中涉及的：
+
+```text
+school_name + major_name + requirement_year
+```
+
+对应记录，再插入新数据。
+
+## 导入专业画像
+
+先 dry-run 校验：
+
+```powershell
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --dry-run
+```
+
+写入数据库：
+
+```powershell
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv
+```
+
+替换同一学校、专业的已有画像：
+
+```powershell
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --replace-scope
+```
+
+`--replace-scope` 会删除 CSV 中涉及的：
+
+```text
+school_name + major_name
+```
+
+对应记录，再插入新数据。
+
 ## 字段要求
 
 CSV 字段必须和模板完全一致，包括顺序。
@@ -87,6 +147,18 @@ data/templates/admission_history_template.csv
 
 ```text
 data/templates/score_rank_table_template.csv
+```
+
+2026 选科要求模板：
+
+```text
+data/templates/subject_requirement_template.csv
+```
+
+专业画像模板：
+
+```text
+data/templates/school_major_profile_template.csv
 ```
 
 ## 校验规则
@@ -104,6 +176,9 @@ data/templates/score_rank_table_template.csv
 - `above_batch_line_count` 用于等效位次折算，必须来自同年同科类一分一段或官方批次线统计口径。
 - `source_type` 必须是 `official`、`third_party`、`manual_verified`。
 - `confidence` 必须是 `high`、`medium`、`low`。
+- `first_subject_required` 必须是 `物理`、`历史`、`物理或历史均可`。
+- `effective_from` 必须是 2021-2026，`effective_to` 可空或不晚于 2030。
+- `school_major_profile.source_url` 必填，画像类文字字段可空但建议补全。
 
 ## 官方来源策略
 
@@ -131,4 +206,5 @@ data/templates/score_rank_table_template.csv
 ```powershell
 python verify_recommender.py
 python verify_api.py
+python validate_data.py --strict-warnings
 ```

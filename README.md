@@ -70,6 +70,13 @@ python validate_data.py --export-gaps outputs/data_gaps
 
 该命令会生成 `data_gaps.csv` 和 `data_gaps.md`，用于跟踪缺专业画像、缺 2026 选科要求等后续补录任务。
 
+补齐缺口后可用 CSV 模板导入：
+
+```powershell
+python import_data.py --table subject_requirement --csv data/samples/subject_requirement_sample.csv --replace-scope
+python import_data.py --table school_major_profile --csv data/samples/school_major_profile_sample.csv --replace-scope
+```
+
 ## 本地命令行推荐
 
 物理类，已选化学，位次 20000 附近，同时查询计算机和电子信息方向：

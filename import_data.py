@@ -60,6 +60,37 @@ SCORE_RANK_COLUMNS = [
     "source_url",
 ]
 
+SUBJECT_REQUIREMENT_COLUMNS = [
+    "school_name",
+    "major_name",
+    "major_category",
+    "requirement_year",
+    "first_subject_required",
+    "second_subjects_required",
+    "requirement_text",
+    "source_url",
+    "effective_from",
+    "effective_to",
+]
+
+SCHOOL_MAJOR_PROFILE_COLUMNS = [
+    "school_name",
+    "major_name",
+    "discipline_category",
+    "employment_direction",
+    "postgraduate_direction",
+    "subject_requirement_summary",
+    "risk_notes",
+    "source_url",
+]
+
+TABLE_COLUMNS = {
+    "admission_history": ADMISSION_COLUMNS,
+    "score_rank_table": SCORE_RANK_COLUMNS,
+    "subject_requirement": SUBJECT_REQUIREMENT_COLUMNS,
+    "school_major_profile": SCHOOL_MAJOR_PROFILE_COLUMNS,
+}
+
 
 @dataclass(frozen=True)
 class ImportResult:
@@ -216,18 +247,69 @@ def validate_score_rank_row(raw: dict[str, str], row_number: int) -> dict[str, A
     }
 
 
+def validate_subject_requirement_row(raw: dict[str, str], row_number: int) -> dict[str, Any]:
+    requirement_year = parse_int(raw["requirement_year"], "requirement_year", row_number)
+    effective_from = parse_int(raw["effective_from"], "effective_from", row_number)
+    effective_to = parse_int(raw["effective_to"], "effective_to", row_number, allow_empty=True)
+    first_subject_required = require_text(raw["first_subject_required"], "first_subject_required", row_number)
+    second_subjects_required = require_text(raw["second_subjects_required"], "second_subjects_required", row_number)
+
+    if requirement_year is None or not 2021 <= requirement_year <= 2026:
+        raise ValueError(f"Row {row_number}: requirement_year must be between 2021 and 2026")
+    if effective_from is None or not 2021 <= effective_from <= 2026:
+        raise ValueError(f"Row {row_number}: effective_from must be between 2021 and 2026")
+    if effective_to is not None and not effective_from <= effective_to <= 2030:
+        raise ValueError(f"Row {row_number}: effective_to must be empty or between effective_from and 2030")
+    if first_subject_required not in {"物理", "历史", "物理或历史均可"}:
+        raise ValueError(f"Row {row_number}: first_subject_required is invalid")
+    if not second_subjects_required:
+        raise ValueError(f"Row {row_number}: second_subjects_required is required")
+
+    return {
+        "school_name": require_text(raw["school_name"], "school_name", row_number),
+        "major_name": require_text(raw["major_name"], "major_name", row_number),
+        "major_category": optional_text(raw["major_category"]),
+        "requirement_year": requirement_year,
+        "first_subject_required": first_subject_required,
+        "second_subjects_required": second_subjects_required,
+        "requirement_text": require_text(raw["requirement_text"], "requirement_text", row_number),
+        "source_url": require_text(raw["source_url"], "source_url", row_number),
+        "effective_from": effective_from,
+        "effective_to": effective_to,
+    }
+
+
+def validate_school_major_profile_row(raw: dict[str, str], row_number: int) -> dict[str, Any]:
+    return {
+        "school_name": require_text(raw["school_name"], "school_name", row_number),
+        "major_name": require_text(raw["major_name"], "major_name", row_number),
+        "discipline_category": optional_text(raw["discipline_category"]),
+        "employment_direction": optional_text(raw["employment_direction"]),
+        "postgraduate_direction": optional_text(raw["postgraduate_direction"]),
+        "subject_requirement_summary": optional_text(raw["subject_requirement_summary"]),
+        "risk_notes": optional_text(raw["risk_notes"]),
+        "source_url": require_text(raw["source_url"], "source_url", row_number),
+    }
+
+
 def validate_rows(table: str, raw_rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     if not raw_rows:
         raise ValueError("CSV has no data rows")
-    validator = validate_admission_row if table == "admission_history" else validate_score_rank_row
+    validators = {
+        "admission_history": validate_admission_row,
+        "score_rank_table": validate_score_rank_row,
+        "subject_requirement": validate_subject_requirement_row,
+        "school_major_profile": validate_school_major_profile_row,
+    }
+    validator = validators[table]
     return [validator(raw, index + 2) for index, raw in enumerate(raw_rows)]
 
 
 def delete_scope(conn: sqlite3.Connection, table: str, rows: list[dict[str, Any]]) -> int:
     deleted = 0
-    scopes = {(row["year"], row["province"], row["subject_type"]) for row in rows}
-    for year, province, subject_type in scopes:
-        if table == "admission_history":
+    if table == "admission_history":
+        scopes = {(row["year"], row["province"], row["subject_type"]) for row in rows}
+        for year, province, subject_type in scopes:
             batches = {row["batch"] for row in rows if row["year"] == year and row["province"] == province and row["subject_type"] == subject_type}
             for batch in batches:
                 cursor = conn.execute(
@@ -238,7 +320,9 @@ def delete_scope(conn: sqlite3.Connection, table: str, rows: list[dict[str, Any]
                     (year, province, subject_type, batch),
                 )
                 deleted += cursor.rowcount
-        else:
+    elif table == "score_rank_table":
+        scopes = {(row["year"], row["province"], row["subject_type"]) for row in rows}
+        for year, province, subject_type in scopes:
             cursor = conn.execute(
                 """
                 DELETE FROM score_rank_table
@@ -247,11 +331,33 @@ def delete_scope(conn: sqlite3.Connection, table: str, rows: list[dict[str, Any]
                 (year, province, subject_type),
             )
             deleted += cursor.rowcount
+    elif table == "subject_requirement":
+        scopes = {(row["school_name"], row["major_name"], row["requirement_year"]) for row in rows}
+        for school_name, major_name, requirement_year in scopes:
+            cursor = conn.execute(
+                """
+                DELETE FROM subject_requirement
+                WHERE school_name = ? AND major_name = ? AND requirement_year = ?
+                """,
+                (school_name, major_name, requirement_year),
+            )
+            deleted += cursor.rowcount
+    elif table == "school_major_profile":
+        scopes = {(row["school_name"], row["major_name"]) for row in rows}
+        for school_name, major_name in scopes:
+            cursor = conn.execute(
+                """
+                DELETE FROM school_major_profile
+                WHERE school_name = ? AND major_name = ?
+                """,
+                (school_name, major_name),
+            )
+            deleted += cursor.rowcount
     return deleted
 
 
 def insert_rows(conn: sqlite3.Connection, table: str, rows: list[dict[str, Any]]) -> None:
-    columns = ADMISSION_COLUMNS if table == "admission_history" else SCORE_RANK_COLUMNS
+    columns = TABLE_COLUMNS[table]
     placeholders = ", ".join("?" for _ in columns)
     column_sql = ", ".join(columns)
     sql = f"INSERT INTO {table} ({column_sql}) VALUES ({placeholders})"
@@ -266,7 +372,7 @@ def import_csv(
     replace_scope: bool = False,
     dry_run: bool = False,
 ) -> ImportResult:
-    expected_columns = ADMISSION_COLUMNS if table == "admission_history" else SCORE_RANK_COLUMNS
+    expected_columns = TABLE_COLUMNS[table]
     raw_rows = read_csv(csv_path, expected_columns, table)
     rows = validate_rows(table, raw_rows)
 
@@ -294,7 +400,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import cleaned CSV data into gaokao_agent.db.")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH)
     parser.add_argument("--csv", type=Path, required=True, dest="csv_path")
-    parser.add_argument("--table", choices=["admission_history", "score_rank_table"], required=True)
+    parser.add_argument("--table", choices=sorted(TABLE_COLUMNS), required=True)
     parser.add_argument(
         "--replace-scope",
         action="store_true",
